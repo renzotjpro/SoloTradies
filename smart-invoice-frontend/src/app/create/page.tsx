@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Send, Bot, User, FileText, CheckCircle2 } from "lucide-react";
 
 export default function CreateInvoicePage() {
-    const [messages, setMessages] = useState([
+    const [messages, setMessages] = useState<Array<{ role: string; content: string; structuredData?: Record<string, string> }>>([
         {
             role: "assistant",
             content: "Hello Jhon! I'm Invoize AI. Please describe the service you completed today. Include the client name, what you did, and how much to charge.",

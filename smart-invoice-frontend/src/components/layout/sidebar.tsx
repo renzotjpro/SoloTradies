@@ -1,9 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileText, CreditCard, Users, BarChart3, Settings, HelpCircle, LogOut } from "lucide-react";
 
 export function Sidebar() {
+    const pathname = usePathname();
     const navItems = [
-        { label: "Dashboard", href: "/", icon: LayoutDashboard, active: true },
+        { label: "Dashboard", href: "/", icon: LayoutDashboard },
         { label: "Invoices", href: "/invoices", icon: FileText },
         { label: "Payments", href: "/payments", icon: CreditCard },
         { label: "Clients", href: "/clients", icon: Users, hasDropdown: true },
@@ -12,15 +16,20 @@ export function Sidebar() {
         { label: "Help", href: "/help", icon: HelpCircle },
     ];
 
+    function isActive(href: string) {
+        if (href === "/") return pathname === "/";
+        return pathname === href || pathname.startsWith(href + "/");
+    }
+
     return (
-        <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-100 flex flex-col py-6 px-4 z-10">
+        <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col py-6 px-4 z-10">
             <div className="flex items-center gap-2 mb-10 px-4">
                 <div className="text-emerald-500">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
                     </svg>
                 </div>
-                <span className="font-bold text-xl tracking-tight text-gray-900">Invoize</span>
+                <span className="font-bold text-xl tracking-tight text-sidebar-foreground">Invoize</span>
             </div>
 
             <nav className="flex-1 space-y-2">
@@ -28,9 +37,9 @@ export function Sidebar() {
                     <Link
                         key={item.label}
                         href={item.href}
-                        className={`flex flex-row items-center justify-between px-4 py-3 rounded-2xl transition-colors ${item.active
-                                ? "bg-emerald-600 text-white shadow-md shadow-emerald-200"
-                                : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+                        className={`flex flex-row items-center justify-between px-4 py-3 rounded-2xl transition-colors ${isActive(item.href)
+                                ? "bg-emerald-600 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900"
+                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                             }`}
                     >
                         <div className="flex items-center gap-3">
@@ -43,7 +52,7 @@ export function Sidebar() {
                             </span>
                         )}
                         {item.hasDropdown && (
-                            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="w-4 h-4 text-sidebar-foreground/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         )}
@@ -52,7 +61,7 @@ export function Sidebar() {
             </nav>
 
             <div className="mt-auto">
-                <Link href="/logout" className="flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-red-500 transition-colors">
+                <Link href="/logout" className="flex items-center gap-3 px-4 py-3 text-sidebar-foreground/60 hover:text-red-500 transition-colors">
                     <LogOut className="w-5 h-5" />
                     <span className="font-medium">Logout</span>
                 </Link>
