@@ -21,6 +21,10 @@ class Client(Base):
     name = Column(String, index=True)
     email = Column(String, index=True, nullable=True)
     address = Column(String, nullable=True)
+    company = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    abn = Column(String, nullable=True)
+    role = Column(String, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="clients")

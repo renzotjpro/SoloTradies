@@ -23,11 +23,36 @@ def get_clients(db: Session, owner_id: int, skip: int = 0, limit: int = 100):
     return db.query(models.Client).filter(models.Client.owner_id == owner_id).offset(skip).limit(limit).all()
 
 def create_client(db: Session, client: schemas.ClientCreate, owner_id: int):
-    db_client = models.Client(**client.dict(), owner_id=owner_id)
+    db_client = models.Client(**client.model_dump(), owner_id=owner_id)
     db.add(db_client)
     db.commit()
     db.refresh(db_client)
     return db_client
+
+def get_client(db: Session, client_id: int, owner_id: int):
+    return db.query(models.Client).filter(
+        models.Client.id == client_id,
+        models.Client.owner_id == owner_id
+    ).first()
+
+def update_client(db: Session, client_id: int, client_data: schemas.ClientUpdate, owner_id: int):
+    db_client = get_client(db, client_id, owner_id)
+    if not db_client:
+        return None
+    update_data = client_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_client, field, value)
+    db.commit()
+    db.refresh(db_client)
+    return db_client
+
+def delete_client(db: Session, client_id: int, owner_id: int):
+    db_client = get_client(db, client_id, owner_id)
+    if not db_client:
+        return False
+    db.delete(db_client)
+    db.commit()
+    return True
 
 # --- Invoice CRUD ---
 def get_invoices(db: Session, owner_id: int, skip: int = 0, limit: int = 100):

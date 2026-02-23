@@ -7,9 +7,22 @@ class ClientBase(BaseModel):
     name: str
     email: Optional[str] = None
     address: Optional[str] = None
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    abn: Optional[str] = None
+    role: Optional[str] = None
 
 class ClientCreate(ClientBase):
     pass
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    abn: Optional[str] = None
+    role: Optional[str] = None
 
 class Client(ClientBase):
     id: int
