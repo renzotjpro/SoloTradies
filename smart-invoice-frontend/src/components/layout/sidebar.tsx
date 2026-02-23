@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, CreditCard, Users, BarChart3, Settings, HelpCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, CreditCard, Users, BarChart3, Settings, HelpCircle, LogOut, MessageSquare } from "lucide-react";
 
 export function Sidebar() {
     const pathname = usePathname();
     const navItems = [
         { label: "Dashboard", href: "/", icon: LayoutDashboard },
+        { label: "AI Chat", href: "/chat", icon: MessageSquare },
         { label: "Invoices", href: "/invoices", icon: FileText },
         { label: "Payments", href: "/payments", icon: CreditCard },
         { label: "Clients", href: "/clients", icon: Users, hasDropdown: true },
@@ -38,8 +39,8 @@ export function Sidebar() {
                         key={item.label}
                         href={item.href}
                         className={`flex flex-row items-center justify-between px-4 py-3 rounded-2xl transition-colors ${isActive(item.href)
-                                ? "bg-brand-600 text-white shadow-md shadow-brand-200 dark:shadow-brand-900"
-                                : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                            ? "bg-brand-600 text-white shadow-md shadow-brand-200 dark:shadow-brand-900"
+                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                             }`}
                     >
                         <div className="flex items-center gap-3">
