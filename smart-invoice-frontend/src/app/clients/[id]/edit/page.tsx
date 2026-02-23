@@ -263,7 +263,7 @@ export default function EditClientPage() {
             <Link href="/clients">Cancel</Link>
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-brand-600 hover:bg-brand-700 text-white"
             onClick={handleSave}
             disabled={saving}
           >

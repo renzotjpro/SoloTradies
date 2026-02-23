@@ -171,7 +171,7 @@ export default function NewInvoicePage() {
             Save Draft
           </Button>
           <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-brand-600 hover:bg-brand-700 text-white"
             onClick={() => handleSave("Sent")}
             disabled={saving}
           >
@@ -191,8 +191,8 @@ export default function NewInvoicePage() {
                 {/* Business Info */}
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="size-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                      <FileText className="size-5 text-emerald-600" />
+                    <div className="size-10 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center">
+                      <FileText className="size-5 text-brand-600" />
                     </div>
                     <div>
                       <Input
@@ -394,7 +394,7 @@ export default function NewInvoicePage() {
               <Button
                 variant="ghost"
                 onClick={addItem}
-                className="mt-4 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                className="mt-4 text-brand-600 hover:text-brand-700 hover:bg-brand-50 dark:hover:bg-brand-900/20"
               >
                 <Plus className="size-4" />
                 Add Line Item
@@ -445,7 +445,7 @@ export default function NewInvoicePage() {
               {/* GST Info */}
               <div className="flex items-center justify-between">
                 <span className="text-sm">GST Rate</span>
-                <span className="text-sm font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-2.5 py-0.5 rounded-md">
+                <span className="text-sm font-medium bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400 px-2.5 py-0.5 rounded-md">
                   10%
                 </span>
               </div>
@@ -469,7 +469,7 @@ export default function NewInvoicePage() {
                   </div>
                   <div className="flex justify-between font-medium">
                     <span>Total</span>
-                    <span className="text-emerald-600">{formatCurrency(total)}</span>
+                    <span className="text-brand-600">{formatCurrency(total)}</span>
                   </div>
                 </div>
               </div>
@@ -477,11 +477,11 @@ export default function NewInvoicePage() {
           </Card>
 
           {/* Tips Card */}
-          <Card className="border-emerald-200 dark:border-emerald-800/40">
+          <Card className="border-brand-200 dark:border-brand-800/40">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
-                <div className="size-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                  <FileText className="size-4 text-emerald-600" />
+                <div className="size-8 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                  <FileText className="size-4 text-brand-600" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">ATO Compliant</p>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Sun, Moon, Monitor } from "lucide-react";
+import { Pencil, Sun, Moon, Monitor, Palette } from "lucide-react";
 import { useTheme } from "next-themes";
+import { useColorTheme, colorThemes, type ColorThemeName } from "@/lib/theme-colors";
 
 const tabs = ["Basic Information", "Subscription", "System Settings"] as const;
 type Tab = (typeof tabs)[number];
@@ -16,6 +17,7 @@ const themeOptions = [
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Basic Information");
   const { theme, setTheme } = useTheme();
+  const { colorTheme, setColorTheme } = useColorTheme();
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -38,7 +40,7 @@ export default function SettingsPage() {
             onClick={() => setActiveTab(tab)}
             className={`pb-3 font-semibold text-sm transition-colors ${
               activeTab === tab
-                ? "text-emerald-600 border-b-2 border-emerald-600 dark:text-emerald-400 dark:border-emerald-400"
+                ? "text-brand-600 border-b-2 border-brand-600 dark:text-brand-400 dark:border-brand-400"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -51,7 +53,12 @@ export default function SettingsPage() {
       {activeTab === "Basic Information" && <BasicInformationTab />}
       {activeTab === "Subscription" && <SubscriptionTab />}
       {activeTab === "System Settings" && (
-        <SystemSettingsTab theme={theme} setTheme={setTheme} />
+        <SystemSettingsTab
+          theme={theme}
+          setTheme={setTheme}
+          colorTheme={colorTheme}
+          setColorTheme={setColorTheme}
+        />
       )}
     </div>
   );
@@ -109,9 +116,13 @@ function SubscriptionTab() {
 function SystemSettingsTab({
   theme,
   setTheme,
+  colorTheme,
+  setColorTheme,
 }: {
   theme: string | undefined;
   setTheme: (theme: string) => void;
+  colorTheme: ColorThemeName;
+  setColorTheme: (theme: ColorThemeName) => void;
 }) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-sm mt-6 p-8 space-y-8">
@@ -138,12 +149,46 @@ function SystemSettingsTab({
                 onClick={() => setTheme(option.value)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
                   isActive
-                    ? "border-emerald-600 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-950 dark:text-emerald-300"
+                    ? "border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-950 dark:text-brand-400"
                     : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Color Theme Selector */}
+      <div className="space-y-3">
+        <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Palette className="w-4 h-4" />
+          Color Theme
+        </label>
+        <p className="text-muted-foreground text-xs">
+          Choose a color palette for buttons and accents.
+        </p>
+        <div className="grid grid-cols-3 gap-3 mt-2">
+          {(Object.keys(colorThemes) as ColorThemeName[]).map((name) => {
+            const { label, shades } = colorThemes[name];
+            const isActive = colorTheme === name;
+            return (
+              <button
+                key={name}
+                onClick={() => setColorTheme(name)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
+                  isActive
+                    ? "border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-950 dark:text-brand-400"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <span
+                  className="w-5 h-5 rounded-full shrink-0 border border-black/10"
+                  style={{ backgroundColor: shades[600] }}
+                />
+                {label}
               </button>
             );
           })}

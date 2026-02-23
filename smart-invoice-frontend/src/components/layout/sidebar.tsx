@@ -24,7 +24,7 @@ export function Sidebar() {
     return (
         <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col py-6 px-4 z-10">
             <div className="flex items-center gap-2 mb-10 px-4">
-                <div className="text-emerald-500">
+                <div className="text-brand-500">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
                     </svg>
@@ -38,7 +38,7 @@ export function Sidebar() {
                         key={item.label}
                         href={item.href}
                         className={`flex flex-row items-center justify-between px-4 py-3 rounded-2xl transition-colors ${isActive(item.href)
-                                ? "bg-emerald-600 text-white shadow-md shadow-emerald-200 dark:shadow-emerald-900"
+                                ? "bg-brand-600 text-white shadow-md shadow-brand-200 dark:shadow-brand-900"
                                 : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                             }`}
                     >

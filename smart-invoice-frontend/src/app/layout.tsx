@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ColorThemeProvider } from "@/lib/theme-colors";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
@@ -36,15 +37,17 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <div className="flex-1 ml-64 flex flex-col min-h-screen">
-              <Header />
-              <main className="flex-1 px-8 py-6">
-                {children}
-              </main>
+          <ColorThemeProvider>
+            <div className="flex min-h-screen">
+              <Sidebar />
+              <div className="flex-1 ml-64 flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-1 px-8 py-6">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+          </ColorThemeProvider>
         </ThemeProvider>
       </body>
     </html>

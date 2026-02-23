@@ -15,7 +15,7 @@ export default function InvoicesPage() {
             Manage and track all your invoices
           </p>
         </div>
-        <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
           <Link href="/invoices/new">
             <Plus className="size-4" />
             New Invoice
@@ -45,7 +45,7 @@ export default function InvoicesPage() {
           Create your first invoice to start tracking payments and managing your
           business finances.
         </p>
-        <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
           <Link href="/invoices/new">
             <Plus className="size-4" />
             Create Invoice

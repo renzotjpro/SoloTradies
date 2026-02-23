@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(for f in app/clients/[id]/edit/page.tsx app/clients/new/page.tsx app/clients/page.tsx app/create/page.tsx app/invoices/new/page.tsx app/invoices/page.tsx app/page.tsx app/settings/page.tsx)",
+      "Bash(do sed -i 's/emerald-50/brand-50/g; s/emerald-100/brand-100/g; s/emerald-200/brand-200/g; s/emerald-400/brand-400/g; s/emerald-500/brand-500/g; s/emerald-600/brand-600/g; s/emerald-700/brand-700/g; s/emerald-800/brand-800/g; s/emerald-900/brand-900/g; s/emerald-950/brand-950/g' \"$f\")",
+      "Bash(done)"
     ]
   }
 }

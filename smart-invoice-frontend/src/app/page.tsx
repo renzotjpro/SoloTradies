@@ -32,14 +32,14 @@ export default function Dashboard() {
       {/* Header Area */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Welcome Jhon!</h1>
-        <button className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-full font-medium transition-colors shadow-sm shadow-emerald-200">
+        <button className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-full font-medium transition-colors shadow-sm shadow-brand-200">
           <Plus className="w-5 h-5" />
           Create Invoice
         </button>
       </div>
 
       {/* Overview Cards */}
-      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-3xl p-6 shadow-sm border border-emerald-100/50">
+      <div className="bg-gradient-to-r from-brand-50 to-brand-100 rounded-3xl p-6 shadow-sm border border-brand-100/50">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-bold text-gray-800">Overview</h2>
           <button className="text-gray-400 hover:text-gray-600">
@@ -49,7 +49,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
               <Building2 className="w-5 h-5" />
             </div>
             <p className="text-sm text-gray-500 font-medium mb-1">Total Invoice</p>
@@ -57,7 +57,7 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
               <HandCoins className="w-5 h-5" />
             </div>
             <p className="text-sm text-gray-500 font-medium mb-1">Outstanding Amounts</p>
@@ -65,7 +65,7 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <p className="text-sm text-gray-500 font-medium mb-1">Paid this month</p>
@@ -73,7 +73,7 @@ export default function Dashboard() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center mb-4">
               <PiggyBank className="w-5 h-5" />
             </div>
             <p className="text-sm text-gray-500 font-medium mb-1">Upcoming Payments</p>
@@ -156,7 +156,7 @@ export default function Dashboard() {
             {recentInvoices.map((inv) => (
               <tr key={inv.id} className="hover:bg-gray-50/50 text-sm transition-colors">
                 <td className="py-4 px-6 text-center">
-                  <div className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer ${inv.selected ? 'bg-emerald-500' : 'bg-gray-100 border border-gray-200'}`}>
+                  <div className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer ${inv.selected ? 'bg-brand-500' : 'bg-gray-100 border border-gray-200'}`}>
                     {inv.selected && <CheckCircle2 className="w-4 h-4 text-white" />}
                   </div>
                 </td>

@@ -72,12 +72,12 @@ export default function CreateInvoicePage() {
                         <div key={index} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-4`}>
 
                             {message.role === "assistant" && (
-                                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-1 shadow-sm">
+                                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center shrink-0 mt-1 shadow-sm">
                                     <Bot size={18} />
                                 </div>
                             )}
 
-                            <div className={`max-w-[70%] ${message.role === "user" ? "bg-emerald-600 text-white rounded-2xl rounded-tr-none px-5 py-3 shadow-md shadow-emerald-200" : ""}`}>
+                            <div className={`max-w-[70%] ${message.role === "user" ? "bg-brand-600 text-white rounded-2xl rounded-tr-none px-5 py-3 shadow-md shadow-brand-200" : ""}`}>
                                 {message.role === "assistant" ? (
                                     <div className="flex flex-col gap-3">
                                         <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-3 shadow-sm text-gray-700">
@@ -86,10 +86,10 @@ export default function CreateInvoicePage() {
 
                                         {/* Render structured data block if present */}
                                         {message.structuredData && (
-                                            <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm overflow-hidden w-80">
-                                                <div className="bg-emerald-50 px-4 py-3 border-b border-emerald-100 flex items-center gap-2">
-                                                    <FileText className="w-4 h-4 text-emerald-600" />
-                                                    <span className="font-semibold text-emerald-900 text-sm">Invoice Details Draft</span>
+                                            <div className="bg-white rounded-2xl border border-brand-100 shadow-sm overflow-hidden w-80">
+                                                <div className="bg-brand-50 px-4 py-3 border-b border-brand-100 flex items-center gap-2">
+                                                    <FileText className="w-4 h-4 text-brand-600" />
+                                                    <span className="font-semibold text-brand-900 text-sm">Invoice Details Draft</span>
                                                 </div>
                                                 <div className="p-4 space-y-3 text-sm">
                                                     <div className="flex justify-between">
@@ -108,7 +108,7 @@ export default function CreateInvoicePage() {
                                                         <span className="text-gray-500">Date:</span>
                                                         <span className="font-medium text-gray-900">{message.structuredData.date}</span>
                                                     </div>
-                                                    <button className="w-full mt-4 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-xl flex justify-center items-center gap-2 transition-colors">
+                                                    <button className="w-full mt-4 bg-brand-600 hover:bg-brand-700 text-white py-2 rounded-xl flex justify-center items-center gap-2 transition-colors">
                                                         <CheckCircle2 className="w-4 h-4" />
                                                         Generate PDF
                                                     </button>
@@ -132,13 +132,13 @@ export default function CreateInvoicePage() {
 
                     {isGenerating && (
                         <div className="flex justify-start gap-4">
-                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
+                            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center shrink-0 shadow-sm">
                                 <Bot size={18} />
                             </div>
                             <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm text-gray-500 flex items-center gap-2">
-                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce"></span>
-                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                <span className="w-2 h-2 bg-brand-400 rounded-full animate-bounce"></span>
+                                <span className="w-2 h-2 bg-brand-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                <span className="w-2 h-2 bg-brand-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                             </div>
                         </div>
                     )}
@@ -153,12 +153,12 @@ export default function CreateInvoicePage() {
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleSend()}
                             placeholder="e.g. Deep cleaned 2 bedrooms for Marvin McKinney..."
-                            className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-full pl-6 pr-14 py-4 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-gray-400 font-medium"
+                            className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-full pl-6 pr-14 py-4 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all placeholder:text-gray-400 font-medium"
                         />
                         <button
                             onClick={handleSend}
                             disabled={!input.trim()}
-                            className="absolute right-2 top-2 bottom-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm"
+                            className="absolute right-2 top-2 bottom-2 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-300 text-white w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm"
                         >
                             <Send size={18} className="translate-x-[-1px] translate-y-[1px]" />
                         </button>

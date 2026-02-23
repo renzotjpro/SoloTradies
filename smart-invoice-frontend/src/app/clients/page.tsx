@@ -66,7 +66,7 @@ export default function ClientsPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Clients</h1>
-        <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
           <Link href="/clients/new">
             <Plus className="size-4" />
             New client
@@ -105,7 +105,7 @@ export default function ClientsPage() {
               : "No clients match your search. Try a different term."}
           </p>
           {clients.length === 0 && (
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
               <Link href="/clients/new">
                 <Plus className="size-4" />
                 Add Client
@@ -122,8 +122,8 @@ export default function ClientsPage() {
                 <CardContent className="pt-6">
                   {/* Avatar + Name + Role */}
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="size-11 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                    <div className="size-11 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
+                      <span className="text-sm font-semibold text-brand-700 dark:text-brand-400">
                         {getInitials(client.name)}
                       </span>
                     </div>
