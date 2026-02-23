@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+langgraph
+langchain
+langchain-openai
+langchain-core
+python-dotenv
+pydantic
+reportlab
+pytest
