@@ -4,6 +4,7 @@ sqlalchemy
 langgraph
 langchain
 langchain-openai
+langchain-anthropic
 langchain-core
 python-dotenv
 pydantic

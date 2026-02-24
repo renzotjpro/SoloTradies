@@ -1,9 +1,12 @@
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
-import json
 
 from app.agent.state import AgentState, InvoiceData
 from app.agent.llm import get_llm
+
+logger = logging.getLogger(__name__)
 
 def extract_information(state: AgentState):
     """
@@ -12,23 +15,25 @@ def extract_information(state: AgentState):
     """
     messages = state["messages"]
 
-    # We use OpenAI's tool calling feature (structured output) to force JSON extraction
-    llm = get_llm()
-    structured_llm = llm.with_structured_output(InvoiceData)
+    try:
+        llm = get_llm()
+        structured_llm = llm.with_structured_output(InvoiceData)
 
-    # Prompt the LLM to extract data based on the entire conversation
-    system_prompt = (
-        "You are an AI assistant for a tradie invoicing application. "
-        "Your job is to extract the following information from the conversation: "
-        "Client name, description of service, total amount charged, and the date the service was completed. "
-        "If a piece of information is missing, leave it as null/None."
-    )
-    
-    # We only pass the chat history up to this point
-    response = structured_llm.invoke([SystemMessage(content=system_prompt)] + messages)
-    
-    # Update the state with the newly extracted data
-    return {"extracted_data": response}
+        system_prompt = (
+            "You are an AI assistant for a tradie invoicing application. "
+            "Your job is to extract the following information from the conversation: "
+            "Client name, description of service, total amount charged, and the date the service was completed. "
+            "If a piece of information is missing, leave it as null/None."
+        )
+
+        response = structured_llm.invoke([SystemMessage(content=system_prompt)] + messages)
+        return {"extracted_data": response}
+    except Exception as e:
+        logger.error(f"extract_information failed: {e}")
+        return {
+            "extracted_data": None,
+            "messages": [AIMessage(content="I'm having trouble processing that right now. Could you try again or rephrase your message?")],
+        }
 
 def validate_data(state: AgentState):
     """
@@ -51,15 +56,20 @@ def validate_data(state: AgentState):
 
     if missing:
         # We need to ask the user for the missing fields
-        llm = get_llm()
-        ask_prompt = (
-            f"You are a helpful assistant helping a tradie draft an invoice. "
-            f"You have extracted the following so far: {data.dict() if data else 'Nothing yet'}. "
-            f"However, you still need to ask the user for: {', '.join(missing)}. "
-            f"Write a short, friendly message asking the user for this missing information."
-        )
-        ai_msg = llm.invoke([SystemMessage(content=ask_prompt)])
-        return {"messages": [ai_msg], "is_complete": False}
+        try:
+            llm = get_llm()
+            ask_prompt = (
+                f"You are a helpful assistant helping a tradie draft an invoice. "
+                f"You have extracted the following so far: {data.dict() if data else 'Nothing yet'}. "
+                f"However, you still need to ask the user for: {', '.join(missing)}. "
+                f"Write a short, friendly message asking the user for this missing information."
+            )
+            ai_msg = llm.invoke([SystemMessage(content=ask_prompt)])
+            return {"messages": [ai_msg], "is_complete": False}
+        except Exception as e:
+            logger.error(f"validate_data failed: {e}")
+            fallback = AIMessage(content=f"I still need the following details: {', '.join(missing)}. Could you provide them?")
+            return {"messages": [fallback], "is_complete": False}
     
     return {"is_complete": True}
 

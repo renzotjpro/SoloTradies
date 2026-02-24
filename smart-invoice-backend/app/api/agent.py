@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -7,10 +8,12 @@ from pydantic import BaseModel
 from typing import List
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
 from app.agent.state import AgentState
 from app.agent.graph import app as workflow_app
+from app.agent.llm import get_llm
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Agent Chat"])
 
@@ -45,17 +48,24 @@ async def chat_endpoint(request: ChatRequest):
     )
     
     # Run the graph
-    # LangGraph returns a dictionary of the updated state
-    final_state = workflow_app.invoke(initial_state)
-    
+    try:
+        final_state = workflow_app.invoke(initial_state)
+    except Exception as e:
+        logger.error(f"Chat workflow failed: {e}")
+        return {
+            "reply": "Sorry, something went wrong while processing your message. Please try again.",
+            "structuredData": None,
+            "is_complete": False,
+        }
+
     # The last message in the state is the AI's reply
     reply = final_state["messages"][-1].content
-    
+
     # Check if structured data was extracted
     structured_data = None
     if final_state.get("extracted_data"):
         structured_data = final_state["extracted_data"].dict()
-        
+
     return {
         "reply": reply,
         "structuredData": structured_data,
@@ -86,7 +96,20 @@ async def chat_stream_endpoint(request: ChatRequest):
     )
 
     # Run the graph synchronously (extraction is fast), then stream the reply
-    final_state = workflow_app.invoke(initial_state)
+    try:
+        final_state = workflow_app.invoke(initial_state)
+    except Exception as e:
+        logger.error(f"Chat stream workflow failed: {e}")
+
+        async def error_generator():
+            yield f"data: {json.dumps({'type': 'token', 'content': 'Sorry, something went wrong. Please try again.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'is_complete': False})}\n\n"
+
+        return StreamingResponse(
+            error_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        )
 
     reply = final_state["messages"][-1].content
     structured_data = None
@@ -123,7 +146,7 @@ async def chat_stream_endpoint(request: ChatRequest):
 @router.post("/improve-prompt", response_model=ImprovePromptResponse)
 async def improve_prompt(request: ImprovePromptRequest):
     """Rewrite a rough user prompt into clear, professional text."""
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+    llm = get_llm(temperature=0.3)
     system_msg = SystemMessage(
         content=(
             "You are an AI assistant for a tradie invoicing app. "
@@ -133,5 +156,9 @@ async def improve_prompt(request: ImprovePromptRequest):
         )
     )
     human_msg = HumanMessage(content=request.prompt)
-    response = llm.invoke([system_msg, human_msg])
-    return ImprovePromptResponse(improved_prompt=response.content)
+    try:
+        response = llm.invoke([system_msg, human_msg])
+        return ImprovePromptResponse(improved_prompt=response.content)
+    except Exception as e:
+        logger.error(f"Improve prompt failed: {e}")
+        return ImprovePromptResponse(improved_prompt=request.prompt)
