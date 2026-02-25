@@ -1,66 +1,270 @@
-from sqlalchemy.orm import Session
-from app.models import models
+from supabase import Client
 from app.schemas import schemas
+from datetime import datetime, timezone
 
 # --- User CRUD ---
-def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
+def get_user(sb: Client, user_id: int):
+    result = sb.table("users").select("*").eq("id", user_id).execute()
+    return result.data[0] if result.data else None
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+def get_user_by_email(sb: Client, email: str):
+    result = sb.table("users").select("*").eq("email", email).execute()
+    return result.data[0] if result.data else None
 
-def create_user(db: Session, user: schemas.UserCreate):
+def create_user(sb: Client, user: schemas.UserCreate):
+    now = datetime.now(timezone.utc).isoformat()
     # In a real app, hash the password properly
     fake_hashed_password = user.password + "notreallyhashed"
-    db_user = models.User(email=user.email, name=user.name, hashed_password=fake_hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    data = {
+        "email": user.email,
+        "name": user.name,
+        "hashed_password": fake_hashed_password,
+        "is_active": True,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = sb.table("users").insert(data).execute()
+    return result.data[0]
 
 # --- Client CRUD ---
-def get_clients(db: Session, owner_id: int, skip: int = 0, limit: int = 100):
-    return db.query(models.Client).filter(models.Client.owner_id == owner_id).offset(skip).limit(limit).all()
+def get_clients(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
+    result = (
+        sb.table("clients")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .range(skip, skip + limit - 1)
+        .execute()
+    )
+    return result.data
 
-def create_client(db: Session, client: schemas.ClientCreate, owner_id: int):
-    db_client = models.Client(**client.model_dump(), owner_id=owner_id)
-    db.add(db_client)
-    db.commit()
-    db.refresh(db_client)
-    return db_client
+def get_client(sb: Client, client_id: int, owner_id: int):
+    result = (
+        sb.table("clients")
+        .select("*")
+        .eq("id", client_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
-def get_client(db: Session, client_id: int, owner_id: int):
-    return db.query(models.Client).filter(
-        models.Client.id == client_id,
-        models.Client.owner_id == owner_id
-    ).first()
+def create_client(sb: Client, client: schemas.ClientCreate, owner_id: int):
+    now = datetime.now(timezone.utc).isoformat()
+    data = {**client.model_dump(), "owner_id": owner_id, "created_at": now, "updated_at": now}
+    result = sb.table("clients").insert(data).execute()
+    return result.data[0]
 
-def update_client(db: Session, client_id: int, client_data: schemas.ClientUpdate, owner_id: int):
-    db_client = get_client(db, client_id, owner_id)
-    if not db_client:
+def update_client(sb: Client, client_id: int, client_data: schemas.ClientUpdate, owner_id: int):
+    existing = get_client(sb, client_id, owner_id)
+    if not existing:
         return None
-    update_data = client_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(db_client, field, value)
-    db.commit()
-    db.refresh(db_client)
-    return db_client
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {**client_data.model_dump(exclude_unset=True), "updated_at": now}
+    result = (
+        sb.table("clients")
+        .update(update_data)
+        .eq("id", client_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
 
-def delete_client(db: Session, client_id: int, owner_id: int):
-    db_client = get_client(db, client_id, owner_id)
-    if not db_client:
+def delete_client(sb: Client, client_id: int, owner_id: int):
+    existing = get_client(sb, client_id, owner_id)
+    if not existing:
         return False
-    db.delete(db_client)
-    db.commit()
+    sb.table("clients").delete().eq("id", client_id).eq("owner_id", owner_id).execute()
     return True
 
 # --- Invoice CRUD ---
-def get_invoices(db: Session, owner_id: int, skip: int = 0, limit: int = 100):
-    return db.query(models.Invoice).filter(models.Invoice.owner_id == owner_id).offset(skip).limit(limit).all()
+def get_invoices(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
+    result = (
+        sb.table("invoices")
+        .select("*, invoice_items(*)")
+        .eq("owner_id", owner_id)
+        .range(skip, skip + limit - 1)
+        .execute()
+    )
+    invoices = []
+    for row in result.data:
+        row["items"] = row.pop("invoice_items", [])
+        invoices.append(row)
+    return invoices
 
-def create_invoice(db: Session, invoice: schemas.InvoiceCreate, owner_id: int):
-    db_invoice = models.Invoice(**invoice.dict(), owner_id=owner_id)
-    db.add(db_invoice)
-    db.commit()
-    db.refresh(db_invoice)
-    return db_invoice
+def get_invoice(sb: Client, invoice_id: int, owner_id: int):
+    result = (
+        sb.table("invoices")
+        .select("*, invoice_items(*)")
+        .eq("id", invoice_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    if not result.data:
+        return None
+    row = result.data[0]
+    row["items"] = row.pop("invoice_items", [])
+    return row
+
+def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
+    # Compute line item amounts
+    items_data = []
+    subtotal = 0
+    tax_amount = 0
+    for item in invoice.items:
+        amount = item.quantity * item.unit_price
+        item_tax = amount * item.tax_rate
+        subtotal += amount
+        tax_amount += item_tax
+        items_data.append({
+            "description": item.description,
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "amount": round(amount, 2),
+            "tax_rate": item.tax_rate,
+        })
+
+    total_amount = subtotal + tax_amount
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Insert the invoice
+    invoice_data = {
+        "invoice_number": invoice.invoice_number,
+        "client_id": invoice.client_id,
+        "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+        "status": invoice.status or "Draft",
+        "notes": invoice.notes,
+        "subtotal": round(subtotal, 2),
+        "tax_amount": round(tax_amount, 2),
+        "total_amount": round(total_amount, 2),
+        "owner_id": owner_id,
+        "issue_date": now,
+        "created_at": now,
+        "updated_at": now,
+    }
+    inv_result = sb.table("invoices").insert(invoice_data).execute()
+    new_invoice = inv_result.data[0]
+    invoice_id = new_invoice["id"]
+
+    # Insert line items
+    for item_data in items_data:
+        item_data["invoice_id"] = invoice_id
+        item_data["created_at"] = now
+
+    if items_data:
+        items_result = sb.table("invoice_items").insert(items_data).execute()
+        new_invoice["items"] = items_result.data
+    else:
+        new_invoice["items"] = []
+
+    return new_invoice
+
+# --- Expense CRUD ---
+def get_expenses(sb: Client, owner_id: int, skip: int = 0, limit: int = 100,
+                 category: str = None, client_id: int = None, invoice_id: int = None):
+    query = sb.table("expenses").select("*").eq("owner_id", owner_id)
+    if category:
+        query = query.eq("category", category)
+    if client_id:
+        query = query.eq("client_id", client_id)
+    if invoice_id:
+        query = query.eq("invoice_id", invoice_id)
+    result = query.range(skip, skip + limit - 1).execute()
+    return result.data
+
+def get_expense(sb: Client, expense_id: int, owner_id: int):
+    result = (
+        sb.table("expenses")
+        .select("*")
+        .eq("id", expense_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def create_expense(sb: Client, expense: schemas.ExpenseCreate, owner_id: int):
+    # Auto-calculate GST: in Australia, GST is 1/11 of the total price
+    gst_included = round(expense.amount / 11, 2)
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "description": expense.description,
+        "amount": expense.amount,
+        "gst_included": gst_included,
+        "category": expense.category,
+        "expense_date": expense.expense_date.isoformat(),
+        "receipt_url": expense.receipt_url,
+        "client_id": expense.client_id,
+        "invoice_id": expense.invoice_id,
+        "owner_id": owner_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = sb.table("expenses").insert(data).execute()
+    return result.data[0]
+
+def update_expense(sb: Client, expense_id: int, expense_data: schemas.ExpenseUpdate, owner_id: int):
+    existing = get_expense(sb, expense_id, owner_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {**expense_data.model_dump(exclude_unset=True), "updated_at": now}
+    # Serialize datetime fields
+    if "expense_date" in update_data and update_data["expense_date"]:
+        update_data["expense_date"] = update_data["expense_date"].isoformat()
+    # Recalculate GST if amount changed
+    if "amount" in update_data:
+        update_data["gst_included"] = round(update_data["amount"] / 11, 2)
+    result = (
+        sb.table("expenses")
+        .update(update_data)
+        .eq("id", expense_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def delete_expense(sb: Client, expense_id: int, owner_id: int):
+    existing = get_expense(sb, expense_id, owner_id)
+    if not existing:
+        return False
+    sb.table("expenses").delete().eq("id", expense_id).eq("owner_id", owner_id).execute()
+    return True
+
+# --- Dashboard Stats ---
+def get_dashboard_stats(sb: Client, owner_id: int) -> schemas.DashboardStats:
+    # Revenue and GST from paid invoices
+    paid = (
+        sb.table("invoices")
+        .select("total_amount, tax_amount")
+        .eq("owner_id", owner_id)
+        .eq("status", "Paid")
+        .execute()
+    )
+    total_revenue = sum(row["total_amount"] for row in paid.data)
+    gst_collected = sum(row["tax_amount"] for row in paid.data)
+
+    # Outstanding from unpaid invoices
+    outstanding = (
+        sb.table("invoices")
+        .select("total_amount")
+        .eq("owner_id", owner_id)
+        .in_("status", ["Draft", "Sent", "Overdue"])
+        .execute()
+    )
+    outstanding_amount = sum(row["total_amount"] for row in outstanding.data)
+
+    # Total expenses and claimable GST
+    expenses = (
+        sb.table("expenses")
+        .select("amount, gst_included")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    total_expenses = sum(row["amount"] for row in expenses.data)
+    gst_claimable = sum(row["gst_included"] for row in expenses.data)
+
+    return schemas.DashboardStats(
+        total_revenue=float(total_revenue),
+        outstanding_amount=float(outstanding_amount),
+        total_expenses=float(total_expenses),
+        gst_collected=float(gst_collected),
+        gst_claimable=float(gst_claimable),
+    )

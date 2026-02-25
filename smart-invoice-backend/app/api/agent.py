@@ -9,7 +9,7 @@ from typing import List
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from app.agent.state import AgentState
+from app.agent.state import AgentState, SYSTEM_PROMPT
 from app.agent.graph import app as workflow_app
 from app.agent.llm import get_llm
 
@@ -64,7 +64,7 @@ async def chat_endpoint(request: ChatRequest):
     # Check if structured data was extracted
     structured_data = None
     if final_state.get("extracted_data"):
-        structured_data = final_state["extracted_data"].dict()
+        structured_data = final_state["extracted_data"].model_dump()
 
     return {
         "reply": reply,
@@ -114,7 +114,7 @@ async def chat_stream_endpoint(request: ChatRequest):
     reply = final_state["messages"][-1].content
     structured_data = None
     if final_state.get("extracted_data"):
-        structured_data = final_state["extracted_data"].dict()
+        structured_data = final_state["extracted_data"].model_dump()
     is_complete = final_state.get("is_complete", False)
 
     async def event_generator():
@@ -149,10 +149,10 @@ async def improve_prompt(request: ImprovePromptRequest):
     llm = get_llm(temperature=0.3)
     system_msg = SystemMessage(
         content=(
-            "You are an AI assistant for a tradie invoicing app. "
-            "The user will provide a rough, potentially grammatically incorrect description of their work. "
-            "Rewrite it into a clear, professional, and structured text that is easy to understand. "
-            "Fix spelling mistakes. Return ONLY the improved text, no conversational filler."
+            f"{SYSTEM_PROMPT}\n\n"
+            "Your current task: Rewrite the user's rough description into clear, "
+            "professional text. Fix spelling and grammar. "
+            "Return ONLY the improved text, no conversational filler."
         )
     )
     human_msg = HumanMessage(content=request.prompt)

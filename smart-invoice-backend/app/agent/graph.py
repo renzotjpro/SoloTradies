@@ -3,7 +3,7 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 
-from app.agent.state import AgentState, InvoiceData
+from app.agent.state import AgentState, InvoiceData, SYSTEM_PROMPT
 from app.agent.llm import get_llm
 
 logger = logging.getLogger(__name__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def extract_information(state: AgentState):
     """
     Node: Analyzes the conversation history and attempts to extract
-    client_name, service_description, amount, and date.
+    client_name, line items (service descriptions + amounts), and date.
     """
     messages = state["messages"]
 
@@ -20,10 +20,10 @@ def extract_information(state: AgentState):
         structured_llm = llm.with_structured_output(InvoiceData)
 
         system_prompt = (
-            "You are an AI assistant for a tradie invoicing application. "
-            "Your job is to extract the following information from the conversation: "
-            "Client name, description of service, total amount charged, and the date the service was completed. "
-            "If a piece of information is missing, leave it as null/None."
+            f"{SYSTEM_PROMPT}\n\n"
+            "Your current task: Extract structured invoice data from the conversation.\n"
+            "Extract: client name, one or more line items (each with description and amount), "
+            "and date of service. If any piece is missing, leave it as null/None."
         )
 
         response = structured_llm.invoke([SystemMessage(content=system_prompt)] + messages)
@@ -45,13 +45,12 @@ def validate_data(state: AgentState):
     
     # If no data object exists yet, we assume missing info
     if not data:
-        missing = ["client_name", "service_description", "amount", "date"]
+        missing = ["Client name", "Service items (description and amount)", "Date of service"]
     else:
         missing = []
-        # Check our Pydantic model for nulls
         if not data.client_name: missing.append("Client name")
-        if not data.service_description: missing.append("Service description")
-        if not data.amount: missing.append("Total amount")
+        if not data.items or not any(i.description and i.amount for i in data.items):
+            missing.append("Service items (description and amount)")
         if not data.date: missing.append("Date of service")
 
     if missing:
@@ -59,10 +58,11 @@ def validate_data(state: AgentState):
         try:
             llm = get_llm()
             ask_prompt = (
-                f"You are a helpful assistant helping a tradie draft an invoice. "
-                f"You have extracted the following so far: {data.dict() if data else 'Nothing yet'}. "
-                f"However, you still need to ask the user for: {', '.join(missing)}. "
-                f"Write a short, friendly message asking the user for this missing information."
+                f"{SYSTEM_PROMPT}\n\n"
+                f"Your current task: Ask the user for missing invoice details.\n"
+                f"Extracted so far: {data.model_dump() if data else 'Nothing yet'}.\n"
+                f"Still needed: {', '.join(missing)}.\n"
+                f"Write a short, friendly message asking for the missing information."
             )
             ai_msg = llm.invoke([SystemMessage(content=ask_prompt)])
             return {"messages": [ai_msg], "is_complete": False}
@@ -84,8 +84,9 @@ def generate_invoice(state: AgentState):
     # In reality, this is where we'd call crud.create_invoice and the PDF generation script
     # For now, we return a final confirmation message.
     
+    total = sum(item.amount for item in data.items if item.amount) if data.items else 0
     success_msg = AIMessage(
-        content=f"Great! I have all the details. I am generating the invoice for {data.client_name} for the amount of ${data.amount}."
+        content=f"Great! I have all the details. I am generating the invoice for {data.client_name} for the amount of ${total:.2f}."
     )
     return {"messages": [success_msg]}
 

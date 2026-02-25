@@ -3,19 +3,14 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from app.database import engine
-from app.models import models
-from app.api import invoices, agent, clients
-
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+from app.api import invoices, agent, clients, expenses
 
 app = FastAPI(title="Smart Invoice API")
 
 app.include_router(invoices.router)
 app.include_router(agent.router)
 app.include_router(clients.router)
+app.include_router(expenses.router)
 
 # Configure CORS for Next.js frontend
 app.add_middleware(
