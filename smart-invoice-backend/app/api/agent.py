@@ -9,13 +9,28 @@ from typing import List
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from app.agent.state import AgentState, SYSTEM_PROMPT
+from app.agent.state import AgentState, InvoiceData, SYSTEM_PROMPT
 from app.agent.graph import app as workflow_app
 from app.agent.llm import get_llm
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Agent Chat"])
+
+
+def _format_structured_data(extracted: InvoiceData | None) -> dict | None:
+    """Transform backend InvoiceData into the flat shape the frontend expects."""
+    if not extracted:
+        return None
+    items = extracted.items or []
+    service = ", ".join(i.description for i in items if i.description) or None
+    total = sum(i.amount for i in items if i.amount)
+    return {
+        "client": extracted.client_name,
+        "service": service,
+        "amount": f"${total:,.2f}" if total else None,
+        "date": extracted.date,
+    }
 
 class ChatMessage(BaseModel):
     role: str
@@ -43,8 +58,9 @@ async def chat_endpoint(request: ChatRequest):
     # Initialize state
     initial_state = AgentState(
         messages=langchain_messages,
-        extracted_data=None, 
-        is_complete=False
+        extracted_data=None,
+        is_complete=False,
+        created_invoice_id=None,
     )
     
     # Run the graph
@@ -61,15 +77,10 @@ async def chat_endpoint(request: ChatRequest):
     # The last message in the state is the AI's reply
     reply = final_state["messages"][-1].content
 
-    # Check if structured data was extracted
-    structured_data = None
-    if final_state.get("extracted_data"):
-        structured_data = final_state["extracted_data"].model_dump()
-
     return {
         "reply": reply,
-        "structuredData": structured_data,
-        "is_complete": final_state.get("is_complete", False)
+        "structuredData": _format_structured_data(final_state.get("extracted_data")),
+        "is_complete": final_state.get("is_complete", False),
     }
 
 
@@ -93,6 +104,7 @@ async def chat_stream_endpoint(request: ChatRequest):
         messages=langchain_messages,
         extracted_data=None,
         is_complete=False,
+        created_invoice_id=None,
     )
 
     # Run the graph synchronously (extraction is fast), then stream the reply
@@ -112,9 +124,7 @@ async def chat_stream_endpoint(request: ChatRequest):
         )
 
     reply = final_state["messages"][-1].content
-    structured_data = None
-    if final_state.get("extracted_data"):
-        structured_data = final_state["extracted_data"].model_dump()
+    structured_data = _format_structured_data(final_state.get("extracted_data"))
     is_complete = final_state.get("is_complete", False)
 
     async def event_generator():

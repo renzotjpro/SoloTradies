@@ -45,3 +45,6 @@ class AgentState(TypedDict):
 
     # Flag to indicate if we have all necessary data to generate the PDF
     is_complete: bool
+
+    # ID of the invoice created in the database (set by generate_invoice)
+    created_invoice_id: Optional[int]

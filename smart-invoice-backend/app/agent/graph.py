@@ -1,10 +1,14 @@
 import logging
+import uuid
 
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage
 from langgraph.graph import StateGraph, START, END
 
 from app.agent.state import AgentState, InvoiceData, SYSTEM_PROMPT
 from app.agent.llm import get_llm
+from app.database import get_supabase
+from app.schemas import schemas
+from app.crud import crud
 
 logger = logging.getLogger(__name__)
 
@@ -75,20 +79,73 @@ def validate_data(state: AgentState):
 
 def generate_invoice(state: AgentState):
     """
-    Node: The final step. All data is present. 
-    In a real system, this would trigger the PDF generation and database save.
-    For the agent logic, we just return a success message summarizing the data.
+    Node: The final step. All data is present.
+    Creates the client (if new) and invoice in Supabase, then returns a confirmation.
     """
     data = state["extracted_data"]
-    
-    # In reality, this is where we'd call crud.create_invoice and the PDF generation script
-    # For now, we return a final confirmation message.
-    
+    owner_id = 1  # MVP: no auth yet
+
     total = sum(item.amount for item in data.items if item.amount) if data.items else 0
-    success_msg = AIMessage(
-        content=f"Great! I have all the details. I am generating the invoice for {data.client_name} for the amount of ${total:.2f}."
-    )
-    return {"messages": [success_msg]}
+
+    try:
+        sb = get_supabase()
+
+        # Find or create the client
+        existing = sb.table("clients").select("id").eq("name", data.client_name).eq("owner_id", owner_id).execute()
+        if existing.data:
+            client_id = existing.data[0]["id"]
+        else:
+            new_client = crud.create_client(
+                sb,
+                schemas.ClientCreate(name=data.client_name),
+                owner_id,
+            )
+            client_id = new_client["id"]
+
+        # Build invoice items in the schema the CRUD layer expects
+        invoice_items = [
+            schemas.InvoiceItemCreate(
+                description=item.description or "Service",
+                quantity=1,
+                unit_price=item.amount or 0,
+                tax_rate=0.10,
+            )
+            for item in data.items
+            if item.description or item.amount
+        ]
+
+        # Generate a unique invoice number
+        inv_number = f"INV-{uuid.uuid4().hex[:8].upper()}"
+
+        invoice_data = schemas.InvoiceCreate(
+            invoice_number=inv_number,
+            client_id=client_id,
+            status="Draft",
+            notes=f"Service date: {data.date}" if data.date else None,
+            items=invoice_items,
+        )
+
+        new_invoice = crud.create_invoice(sb, invoice_data, owner_id)
+        invoice_id = new_invoice["id"]
+
+        success_msg = AIMessage(
+            content=(
+                f"Great! I have all the details. I've created invoice **{inv_number}** "
+                f"for {data.client_name} for the amount of ${total:,.2f} (excl. GST). "
+                f"The invoice has been saved as a Draft."
+            )
+        )
+        return {"messages": [success_msg], "created_invoice_id": invoice_id}
+
+    except Exception as e:
+        logger.error(f"generate_invoice failed to save: {e}")
+        success_msg = AIMessage(
+            content=(
+                f"I have all the details for {data.client_name} (${total:,.2f}), "
+                f"but I encountered an error saving the invoice. Please try again."
+            )
+        )
+        return {"messages": [success_msg]}
 
 def route_next_step(state: AgentState):
     """

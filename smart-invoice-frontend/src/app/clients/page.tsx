@@ -32,17 +32,18 @@ function getInitials(name: string): string {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     async function fetchClients() {
       try {
         const res = await fetch(`${API_BASE}/clients/`);
-        if (!res.ok) throw new Error("Failed to fetch");
+        if (!res.ok) throw new Error("Failed to fetch clients");
         const data = await res.json();
         setClients(data);
       } catch {
-        // Silently fail — empty list shown
+        setError("Failed to load clients. Is the backend running?");
       } finally {
         setLoading(false);
       }
@@ -85,10 +86,17 @@ export default function ClientsPage() {
         />
       </div>
 
-      {/* Loading state */}
+      {/* Loading / Error / Content */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
         </div>
       ) : filteredClients.length === 0 ? (
         /* Empty state */

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Plus,
   Trash2,
@@ -29,6 +30,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+
+interface ClientOption {
+  id: number;
+  name: string;
+  email: string | null;
+  company: string | null;
+}
 
 interface LineItem {
   id: string;
@@ -73,10 +81,24 @@ export default function NewInvoicePage() {
     "123 Main Street, Sydney NSW 2000"
   );
 
-  // Client info
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  // Clients from API
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    async function fetchClients() {
+      try {
+        const res = await fetch("http://localhost:8000/clients/");
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setClients(data);
+      } catch {
+        // Clients will be empty — user can still see the dropdown
+      }
+    }
+    fetchClients();
+  }, []);
 
   // Line items
   const [items, setItems] = useState<LineItem[]>([
@@ -111,9 +133,11 @@ export default function NewInvoicePage() {
     );
   }
 
+  const selectedClient = clients.find((c) => c.id === Number(selectedClientId));
+
   async function handleSave(status: string) {
-    if (!clientName.trim()) {
-      alert("Please enter a client name.");
+    if (!selectedClientId) {
+      alert("Please select a client.");
       return;
     }
     if (items.every((i) => !i.description.trim())) {
@@ -123,10 +147,14 @@ export default function NewInvoicePage() {
 
     setSaving(true);
 
-    const description = items
+    const invoiceItems = items
       .filter((i) => i.description.trim())
-      .map((i) => `${i.description} (${i.qty} ${i.unit} × $${i.price.toFixed(2)})`)
-      .join("; ");
+      .map((i) => ({
+        description: `${i.description} (${i.qty} ${i.unit})`,
+        quantity: i.qty,
+        unit_price: i.price,
+        tax_rate: 0.10,
+      }));
 
     try {
       const res = await fetch("http://localhost:8000/invoices/", {
@@ -134,11 +162,11 @@ export default function NewInvoicePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoice_number: invoiceNumber,
-          description,
-          amount: total,
+          client_id: Number(selectedClientId),
           due_date: dueDate ? new Date(dueDate).toISOString() : null,
           status,
-          client_id: 1,
+          notes: notes.trim() || null,
+          items: invoiceItems,
         }),
       });
 
@@ -250,23 +278,41 @@ export default function NewInvoicePage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="client-name">Client Name *</Label>
-                  <Input
-                    id="client-name"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="e.g. John Smith"
-                  />
+                  <Label>Client *</Label>
+                  {clients.length > 0 ? (
+                    <Select
+                      value={selectedClientId}
+                      onValueChange={setSelectedClientId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a client" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clients.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.name}
+                            {c.company ? ` — ${c.company}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-2">
+                      No clients found.{" "}
+                      <Link
+                        href="/clients/new"
+                        className="text-brand-600 hover:underline"
+                      >
+                        Add a client first
+                      </Link>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="client-email">Client Email</Label>
-                  <Input
-                    id="client-email"
-                    type="email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder="john@example.com"
-                  />
+                  <Label>Client Email</Label>
+                  <p className="text-sm py-2 text-muted-foreground">
+                    {selectedClient?.email || "—"}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="due-date">Due Date</Label>
@@ -464,7 +510,7 @@ export default function NewInvoicePage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Client</span>
                     <span className="truncate max-w-[120px]">
-                      {clientName || "—"}
+                      {selectedClient?.name || "—"}
                     </span>
                   </div>
                   <div className="flex justify-between font-medium">
