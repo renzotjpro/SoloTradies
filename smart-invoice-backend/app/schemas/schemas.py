@@ -83,6 +83,16 @@ class Invoice(BaseModel):
     class Config:
         from_attributes = True
 
+class InvoiceUpdate(BaseModel):
+    client_id: Optional[int] = None
+    due_date: Optional[datetime] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    items: Optional[List[InvoiceItemCreate]] = None
+
+class InvoiceStatusUpdate(BaseModel):
+    status: str  # "Draft", "Sent", "Paid", "Overdue"
+
 # --- Expense Schemas ---
 class ExpenseCreate(BaseModel):
     description: str

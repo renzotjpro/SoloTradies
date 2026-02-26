@@ -79,7 +79,7 @@ def delete_client(sb: Client, client_id: int, owner_id: int):
 def get_invoices(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
     result = (
         sb.table("invoices")
-        .select("*, invoice_items(*)")
+        .select("*, invoice_items(*), clients(*)")
         .eq("owner_id", owner_id)
         .range(skip, skip + limit - 1)
         .execute()
@@ -87,13 +87,14 @@ def get_invoices(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
     invoices = []
     for row in result.data:
         row["items"] = row.pop("invoice_items", [])
+        row["client"] = row.pop("clients", None)
         invoices.append(row)
     return invoices
 
 def get_invoice(sb: Client, invoice_id: int, owner_id: int):
     result = (
         sb.table("invoices")
-        .select("*, invoice_items(*)")
+        .select("*, invoice_items(*), clients(*)")
         .eq("id", invoice_id)
         .eq("owner_id", owner_id)
         .execute()
@@ -102,6 +103,7 @@ def get_invoice(sb: Client, invoice_id: int, owner_id: int):
         return None
     row = result.data[0]
     row["items"] = row.pop("invoice_items", [])
+    row["client"] = row.pop("clients", None)
     return row
 
 def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
@@ -156,6 +158,81 @@ def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
         new_invoice["items"] = []
 
     return new_invoice
+
+def update_invoice(sb: Client, invoice_id: int, invoice_data: schemas.InvoiceUpdate, owner_id: int):
+    existing = get_invoice(sb, invoice_id, owner_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Build update dict from provided fields
+    update_fields: dict = {}
+    if invoice_data.client_id is not None:
+        update_fields["client_id"] = invoice_data.client_id
+    if invoice_data.due_date is not None:
+        update_fields["due_date"] = invoice_data.due_date.isoformat()
+    if invoice_data.status is not None:
+        update_fields["status"] = invoice_data.status
+    if invoice_data.notes is not None:
+        update_fields["notes"] = invoice_data.notes
+
+    # If items provided, replace all line items and recompute totals
+    if invoice_data.items is not None:
+        # Delete old items
+        sb.table("invoice_items").delete().eq("invoice_id", invoice_id).execute()
+
+        # Compute new totals and insert
+        items_data = []
+        subtotal = 0
+        tax_amount = 0
+        for item in invoice_data.items:
+            amount = item.quantity * item.unit_price
+            item_tax = amount * item.tax_rate
+            subtotal += amount
+            tax_amount += item_tax
+            items_data.append({
+                "invoice_id": invoice_id,
+                "description": item.description,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "amount": round(amount, 2),
+                "tax_rate": item.tax_rate,
+                "created_at": now,
+            })
+        if items_data:
+            sb.table("invoice_items").insert(items_data).execute()
+
+        update_fields["subtotal"] = round(subtotal, 2)
+        update_fields["tax_amount"] = round(tax_amount, 2)
+        update_fields["total_amount"] = round(subtotal + tax_amount, 2)
+
+    update_fields["updated_at"] = now
+    sb.table("invoices").update(update_fields).eq("id", invoice_id).eq("owner_id", owner_id).execute()
+    return get_invoice(sb, invoice_id, owner_id)
+
+def update_invoice_status(sb: Client, invoice_id: int, status: str, owner_id: int):
+    existing = get_invoice(sb, invoice_id, owner_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    result = (
+        sb.table("invoices")
+        .update({"status": status, "updated_at": now})
+        .eq("id", invoice_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    if not result.data:
+        return None
+    return get_invoice(sb, invoice_id, owner_id)
+
+def delete_invoice(sb: Client, invoice_id: int, owner_id: int):
+    existing = get_invoice(sb, invoice_id, owner_id)
+    if not existing:
+        return False
+    sb.table("invoice_items").delete().eq("invoice_id", invoice_id).execute()
+    sb.table("invoices").delete().eq("id", invoice_id).eq("owner_id", owner_id).execute()
+    return True
 
 # --- Expense CRUD ---
 def get_expenses(sb: Client, owner_id: int, skip: int = 0, limit: int = 100,
