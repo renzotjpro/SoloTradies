@@ -8,9 +8,10 @@ import type { ChatMessage } from "@/lib/types/chat";
 type MessageListProps = {
     messages: ChatMessage[];
     isGenerating: boolean;
+    onQuickReply?: (messageId: string, choice: string) => void;
 };
 
-export function MessageList({ messages, isGenerating }: MessageListProps) {
+export function MessageList({ messages, isGenerating, onQuickReply }: MessageListProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -20,7 +21,11 @@ export function MessageList({ messages, isGenerating }: MessageListProps) {
     return (
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
             {messages.map((message) => (
-                <ChatMessageBubble key={message.id} message={message} />
+                <ChatMessageBubble
+                    key={message.id}
+                    message={message}
+                    onQuickReply={onQuickReply}
+                />
             ))}
 
             {isGenerating && <TypingIndicator />}

@@ -42,7 +42,9 @@ export function useChat() {
                 id: crypto.randomUUID(),
                 role: "assistant",
                 content: data.reply,
+                choices: data.choices ?? undefined,
                 structuredData: data.structuredData ?? undefined,
+                createdInvoiceId: data.createdInvoiceId ?? undefined,
             };
 
             setMessages((prev) => [...prev, aiMsg]);
@@ -119,6 +121,15 @@ export function useChat() {
                                     : m
                             )
                         );
+                    } else if (payload.type === "choices") {
+                        // Store quick-reply button labels on the message
+                        setMessages((prev) =>
+                            prev.map((m) =>
+                                m.id === assistantId
+                                    ? { ...m, choices: payload.data }
+                                    : m
+                            )
+                        );
                     } else if (payload.type === "structured_data") {
                         setMessages((prev) =>
                             prev.map((m) =>
@@ -131,7 +142,7 @@ export function useChat() {
                         setMessages((prev) =>
                             prev.map((m) =>
                                 m.id === assistantId
-                                    ? { ...m, isStreaming: false }
+                                    ? { ...m, isStreaming: false, createdInvoiceId: payload.createdInvoiceId ?? undefined }
                                     : m
                             )
                         );
@@ -152,10 +163,25 @@ export function useChat() {
         }
     }, [messages, sendMessage]);
 
+    /**
+     * Called when the user taps a quick-reply chip.
+     * Clears the choices from the originating message (so buttons disappear)
+     * and sends the choice text as a new user message.
+     */
+    const onQuickReply = useCallback((messageId: string, choice: string) => {
+        // Strip the leading "1. " / "2. " prefix so the backend sees just "1" or "2"
+        const text = choice.match(/^(\d+)\./)?.[1] ?? choice;
+        // Clear choices from the message that triggered them
+        setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? { ...m, choices: undefined } : m))
+        );
+        sendMessageStreaming(text);
+    }, [sendMessageStreaming]);
+
     const resetChat = useCallback(() => {
         setMessages([]);
         setIsGenerating(false);
     }, []);
 
-    return { messages, isGenerating, sendMessage, sendMessageStreaming, resetChat };
+    return { messages, isGenerating, sendMessage, sendMessageStreaming, onQuickReply, resetChat };
 }

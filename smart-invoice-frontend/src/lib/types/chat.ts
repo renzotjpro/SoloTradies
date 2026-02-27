@@ -8,6 +8,8 @@ export type ChatMessage = {
     amount?: string;
     date?: string;
   };
+  choices?: string[];      // quick-reply button labels, e.g. ["1. Create as new client", "2. Invoice only"]
+  createdInvoiceId?: number; // set only after the invoice is saved to the DB
   isStreaming?: boolean;
 };
 

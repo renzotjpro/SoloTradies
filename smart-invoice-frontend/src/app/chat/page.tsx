@@ -8,7 +8,7 @@ import type { ChatView } from "@/lib/types/chat";
 
 export default function ChatPage() {
     const [view, setView] = useState<ChatView>("home");
-    const { messages, isGenerating, sendMessageStreaming, resetChat } = useChat();
+    const { messages, isGenerating, sendMessageStreaming, onQuickReply, resetChat } = useChat();
 
     const handleFirstMessage = useCallback((prompt: string) => {
         setView("active");
@@ -29,6 +29,7 @@ export default function ChatPage() {
             messages={messages}
             isGenerating={isGenerating}
             onSend={sendMessageStreaming}
+            onQuickReply={onQuickReply}
         />
     );
 }
