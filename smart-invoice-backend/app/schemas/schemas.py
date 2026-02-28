@@ -153,3 +153,44 @@ class DashboardStats(BaseModel):
     total_expenses: float      # sum of all expenses
     gst_collected: float       # sum of tax_amount from paid invoices
     gst_claimable: float       # sum of gst_included from expenses
+
+# --- Organization Schemas ---
+class OrganizationBase(BaseModel):
+    name: str
+    abn: Optional[str] = None
+    industry: Optional[str] = None
+    tax_reg_number: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    postcode: Optional[str] = None
+
+class OrganizationCreate(OrganizationBase):
+    pass
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    abn: Optional[str] = None
+    industry: Optional[str] = None
+    tax_reg_number: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    country: Optional[str] = None
+    state: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    postcode: Optional[str] = None
+
+class Organization(OrganizationBase):
+    id: int
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

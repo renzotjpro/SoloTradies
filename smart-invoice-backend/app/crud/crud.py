@@ -345,3 +345,33 @@ def get_dashboard_stats(sb: Client, owner_id: int) -> schemas.DashboardStats:
         gst_collected=float(gst_collected),
         gst_claimable=float(gst_claimable),
     )
+
+# --- Organization CRUD ---
+def get_organization(sb: Client, owner_id: int):
+    result = (
+        sb.table("organizations")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def create_organization(sb: Client, org: schemas.OrganizationCreate, owner_id: int):
+    now = datetime.now(timezone.utc).isoformat()
+    data = {**org.model_dump(), "owner_id": owner_id, "created_at": now, "updated_at": now}
+    result = sb.table("organizations").insert(data).execute()
+    return result.data[0]
+
+def update_organization(sb: Client, org_data: schemas.OrganizationUpdate, owner_id: int):
+    existing = get_organization(sb, owner_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    update_data = {**org_data.model_dump(exclude_unset=True), "updated_at": now}
+    result = (
+        sb.table("organizations")
+        .update(update_data)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None

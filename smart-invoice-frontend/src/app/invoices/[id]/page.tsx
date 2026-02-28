@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { ClientCombobox } from "@/components/client-combobox";
 import {
   ArrowLeft,
   Save,
@@ -137,6 +138,7 @@ export default function InvoiceDetailPage() {
   const [editNotes, setEditNotes] = useState("");
   const [editItems, setEditItems] = useState<EditLineItem[]>([]);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
 
   // Computed totals for edit mode
   const editSubtotal = useMemo(
@@ -178,10 +180,12 @@ export default function InvoiceDetailPage() {
       }))
     );
     // Fetch clients for the dropdown
+    setClientsLoading(true);
     fetch(`${API_BASE}/clients/`)
       .then((r) => r.json())
       .then(setClients)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setClientsLoading(false));
     setEditing(true);
   }
 
@@ -330,23 +334,12 @@ export default function InvoiceDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Client *</Label>
-                  {clients.length > 0 ? (
-                    <Select value={editClientId} onValueChange={setEditClientId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name}
-                            {c.company ? ` — ${c.company}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-2">Loading clients...</p>
-                  )}
+                  <ClientCombobox
+                    clients={clients}
+                    value={editClientId}
+                    onChange={setEditClientId}
+                    loading={clientsLoading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Client Email</Label>

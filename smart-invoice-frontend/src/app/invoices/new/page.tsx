@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { ClientCombobox } from "@/components/client-combobox";
 import {
   Plus,
   Trash2,
@@ -83,6 +83,7 @@ export default function NewInvoicePage() {
 
   // Clients from API
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [notes, setNotes] = useState("");
 
@@ -95,6 +96,8 @@ export default function NewInvoicePage() {
         setClients(data);
       } catch {
         // Clients will be empty — user can still see the dropdown
+      } finally {
+        setClientsLoading(false);
       }
     }
     fetchClients();
@@ -279,34 +282,12 @@ export default function NewInvoicePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Client *</Label>
-                  {clients.length > 0 ? (
-                    <Select
-                      value={selectedClientId}
-                      onValueChange={setSelectedClientId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {c.name}
-                            {c.company ? ` — ${c.company}` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="text-sm text-muted-foreground py-2">
-                      No clients found.{" "}
-                      <Link
-                        href="/clients/new"
-                        className="text-brand-600 hover:underline"
-                      >
-                        Add a client first
-                      </Link>
-                    </div>
-                  )}
+                  <ClientCombobox
+                    clients={clients}
+                    value={selectedClientId}
+                    onChange={setSelectedClientId}
+                    loading={clientsLoading}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Client Email</Label>
