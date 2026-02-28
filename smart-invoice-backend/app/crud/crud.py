@@ -375,3 +375,90 @@ def update_organization(sb: Client, org_data: schemas.OrganizationUpdate, owner_
         .execute()
     )
     return result.data[0] if result.data else None
+
+# --- Branding CRUD ---
+def get_branding(sb: Client, owner_id: int):
+    result = (
+        sb.table("invoice_branding_settings")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def upsert_branding(sb: Client, branding_data: schemas.BrandingSettingsUpdate, owner_id: int):
+    now = datetime.now(timezone.utc).isoformat()
+    existing = get_branding(sb, owner_id)
+    update_fields = {**branding_data.model_dump(exclude_unset=True), "updated_at": now}
+
+    if existing:
+        result = (
+            sb.table("invoice_branding_settings")
+            .update(update_fields)
+            .eq("owner_id", owner_id)
+            .execute()
+        )
+    else:
+        update_fields["owner_id"] = owner_id
+        update_fields["created_at"] = now
+        result = sb.table("invoice_branding_settings").insert(update_fields).execute()
+
+    return result.data[0] if result.data else None
+
+def get_labels(sb: Client, owner_id: int) -> dict:
+    result = (
+        sb.table("invoice_custom_labels")
+        .select("label_key, label_value")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return {row["label_key"]: row["label_value"] for row in result.data}
+
+def upsert_label(sb: Client, label_key: str, label_value: str, owner_id: int):
+    now = datetime.now(timezone.utc).isoformat()
+    existing = (
+        sb.table("invoice_custom_labels")
+        .select("id")
+        .eq("owner_id", owner_id)
+        .eq("label_key", label_key)
+        .execute()
+    )
+    if existing.data:
+        result = (
+            sb.table("invoice_custom_labels")
+            .update({"label_value": label_value, "updated_at": now})
+            .eq("owner_id", owner_id)
+            .eq("label_key", label_key)
+            .execute()
+        )
+    else:
+        result = (
+            sb.table("invoice_custom_labels")
+            .insert({"owner_id": owner_id, "label_key": label_key, "label_value": label_value, "created_at": now, "updated_at": now})
+            .execute()
+        )
+    return result.data[0] if result.data else None
+
+def upsert_labels_batch(sb: Client, labels: dict, owner_id: int):
+    """Upsert multiple labels at once. labels is a dict of {label_key: label_value}."""
+    for key, value in labels.items():
+        upsert_label(sb, key, value, owner_id)
+    return get_labels(sb, owner_id)
+
+def delete_label(sb: Client, label_key: str, owner_id: int) -> bool:
+    result = (
+        sb.table("invoice_custom_labels")
+        .delete()
+        .eq("owner_id", owner_id)
+        .eq("label_key", label_key)
+        .execute()
+    )
+    return len(result.data) > 0
+
+def get_branding_with_labels(sb: Client, owner_id: int):
+    branding = get_branding(sb, owner_id)
+    labels = get_labels(sb, owner_id)
+    if branding is None:
+        branding = {}
+    branding["labels"] = labels
+    return branding

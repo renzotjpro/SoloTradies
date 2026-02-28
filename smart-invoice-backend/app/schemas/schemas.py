@@ -194,3 +194,89 @@ class Organization(OrganizationBase):
 
     class Config:
         from_attributes = True
+
+# --- Branding Settings Schemas ---
+class BrandingSettingsBase(BaseModel):
+    # Brand
+    logo_url: Optional[str] = None
+    header_image_url: Optional[str] = None
+    display_name: Optional[str] = None
+    business_name: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    abn: Optional[str] = None
+    colour_text: Optional[str] = '#333333'
+    colour_graphical: Optional[str] = '#C0392B'
+
+    # Font
+    font_family: Optional[str] = 'Inter'
+    font_size: Optional[str] = 'regular'
+
+    # Design
+    template_id: Optional[str] = 'tradie_classic'
+    header_layout: Optional[str] = 'full_bar'
+    footer_layout: Optional[str] = 'full_width'
+    table_style: Optional[str] = 'bordered'
+    logo_position: Optional[str] = 'top_left'
+
+    # Visibility Toggles
+    show_client_address: Optional[bool] = False
+    show_client_abn: Optional[bool] = False
+    show_quantity_column: Optional[bool] = True
+    show_quantity_type: Optional[bool] = True
+    show_currency_prefix: Optional[bool] = False
+    show_gst_breakdown: Optional[bool] = True
+    show_discount_row: Optional[bool] = False
+    show_surcharge_row: Optional[bool] = False
+    show_balance_due: Optional[bool] = True
+    show_po_number: Optional[bool] = False
+    show_deposit_due_date: Optional[bool] = False
+    show_payment_details: Optional[bool] = True
+    show_footer_message: Optional[bool] = True
+    show_terms_conditions: Optional[bool] = False
+
+    # Content
+    payment_details: Optional[str] = 'Please make payments via direct deposit to:\nAcc Name: \nBSB: \nAcc No: '
+    payment_terms: Optional[str] = '14_days'
+    footer_message: Optional[str] = "Thank you for your business.\nI'm looking forward to working with you again in the future."
+    terms_conditions: Optional[str] = None
+    invoice_prefix: Optional[str] = None
+    default_notes: Optional[str] = None
+
+class BrandingSettingsCreate(BrandingSettingsBase):
+    pass
+
+class BrandingSettingsUpdate(BrandingSettingsBase):
+    pass
+
+class BrandingSettings(BrandingSettingsBase):
+    id: str
+    owner_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# --- Custom Label Schemas ---
+class CustomLabelCreate(BaseModel):
+    label_key: str
+    label_value: str
+
+class CustomLabelUpdate(BaseModel):
+    label_value: str
+
+class CustomLabel(BaseModel):
+    id: str
+    owner_id: int
+    label_key: str
+    label_value: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class BrandingWithLabels(BrandingSettings):
+    labels: dict = {}  # label_key -> label_value map
