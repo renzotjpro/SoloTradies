@@ -23,17 +23,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-5xl space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-card p-6 rounded-xl border border-border shadow-sm flex items-center space-x-4">
-        <div className="h-16 w-16 bg-[#2a75d3] text-white flex items-center justify-center rounded-full text-3xl font-bold pb-1">
-          B<span className="text-xl">.</span>
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Biffco Enterprises Ltd.</h1>
-          <p className="text-muted-foreground text-sm mt-1">ABN: 60051779536</p>
-        </div>
-      </div>
-
       {/* Tabs */}
       <div className="flex space-x-8 border-b border-border px-2 mt-4">
         {tabs.map((tab) => (
