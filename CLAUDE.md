@@ -9,14 +9,14 @@ SoloTradies ("Invoize") is an AI-powered invoicing app for tradespeople. It has 
 ## Architecture
 
 **Monorepo with two apps:**
-- `smart-invoice-backend/` — FastAPI + SQLAlchemy + LangGraph agent
+- `smart-invoice-backend/` — FastAPI + Supabase (PostgreSQL via supabase-py SDK)
 - `smart-invoice-frontend/` — Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui
 
-**Backend flow:** FastAPI routes → CRUD layer → SQLAlchemy models → SQLite DB. The AI chat endpoint (`POST /api/chat/`) runs a LangGraph StateGraph: `extract_information → validate_data → [generate_invoice if complete, else wait for more input]`.
+**Backend flow:** FastAPI routes → CRUD layer (`app/crud/crud.py`) → Supabase SDK → PostgreSQL. No SQLAlchemy — all DB access uses the supabase-py client. No migrations — run SQL manually in the Supabase dashboard using `create_tables.sql`. The AI chat endpoint (`POST /api/chat/`) runs a LangGraph StateGraph: `extract_information → validate_data → [generate_invoice if complete, else wait for more input]`.
 
-**Frontend flow:** Next.js App Router with a layout shell (Sidebar + Header wrapping all pages). The `/create` page calls the backend chat API directly. Dashboard and Settings pages currently use hardcoded mock data.
+**Frontend flow:** Next.js App Router with a layout shell (Sidebar 264px fixed + Header wrapping all pages). State management via React Context + useReducer. API calls use direct `fetch()` with try/catch — API clients are extracted to `src/lib/api/*.ts`. Forms use react-hook-form + zod. Toasts use sonner (already in root layout).
 
-**Key integration point:** Frontend (`/create`) calls `http://localhost:8000/api/chat/` sending full conversation history.
+**Key integration point:** Frontend calls the backend at `http://localhost:8000`.
 
 ## Commands
 
@@ -34,18 +34,42 @@ pytest                       # Run tests
 pip install -r requirements.txt  # Install deps
 ```
 
-**Required env var:** `OPENAI_API_KEY` must be set for the backend AI agent to work.
+**Required env vars:** `OPENAI_API_KEY` for the AI agent; Supabase credentials for the DB client.
+
+## Key Files
+
+- `smart-invoice-backend/create_tables.sql` — all SQL table definitions (run in Supabase dashboard)
+- `smart-invoice-backend/app/schemas/schemas.py` — all Pydantic schemas
+- `smart-invoice-backend/app/crud/crud.py` — all CRUD functions (Supabase SDK)
+- `smart-invoice-backend/main.py` — router registration
+- `smart-invoice-frontend/src/app/layout.tsx` — root layout (sidebar + header + ThemeProvider + ColorThemeProvider + Toaster)
+- `smart-invoice-frontend/src/lib/theme-colors.tsx` — ColorThemeProvider with 6 brand palettes
+- `smart-invoice-frontend/src/lib/context/BrandingContext.tsx` — branding context (React Context + useReducer)
+- `smart-invoice-frontend/src/lib/api/` — API client modules (one file per domain)
 
 ## Key Conventions
 
-- **Frontend:** App Router (not Pages Router), `"use client"` directive for interactive pages, `@/*` path alias maps to `src/*`, shadcn/ui configured (new-york style, neutral base, Lucide icons), emerald-600 as primary brand color
-- **Backend:** APIRouter with prefix/tags, Pydantic schemas separate from SQLAlchemy models, dependency injection for DB sessions, hardcoded `owner_id = 1` (no auth yet)
-- **Naming:** Python uses snake_case files/functions, PascalCase classes. TypeScript uses PascalCase component files, camelCase functions, kebab-case route directories
+- **Frontend:** App Router (not Pages Router), `"use client"` on all interactive pages, `@/*` path alias maps to `src/*`, shadcn/ui (new-york style, Lucide icons), emerald-600 as primary brand color
+- **Frontend state:** React Context + useReducer (no Zustand). See `BrandingContext.tsx` as the reference pattern.
+- **Frontend API calls:** direct `fetch()` with try/catch, no axios or react-query. Extract API logic to `src/lib/api/*.ts`.
+- **Frontend forms:** react-hook-form + zod. See `src/app/settings/components/edit-profile-form.tsx`.
+- **Auto-save:** debounce 800ms for text inputs, immediate for toggles/color pickers.
+- **Backend:** APIRouter with prefix/tags, Pydantic schemas separate from DB logic, hardcoded `owner_id = 1` (no auth yet), CORS wildcard (`*`) for development.
+- **Naming:** Python uses snake_case files/functions, PascalCase classes. TypeScript uses PascalCase component files, camelCase functions, kebab-case route directories.
 
-## Current State (MVP)
+## Implemented Features
 
-- Only `/create` page has live backend integration
-- Most sidebar nav links (invoices, payments, clients, reports, help) have no pages yet
-- `generate_invoice` node in the LangGraph graph is a stub (no PDF generation or DB save yet)
-- CORS is wildcard (`*`) for development
-- SQLite used intentionally for MVP simplicity
+- `/settings/branding` — invoice branding settings (logo, colors, content toggles, custom labels). Backend router at `/api/v1/branding`. Tables: `invoice_branding_settings`, `invoice_custom_labels`.
+- `/settings` — profile, theme, and general settings pages.
+- `/invoices/new` — invoice creation page with client selection, line item management, and live preview.
+- AI chat agent (`/create`) — LangGraph-based conversational invoice creation.
+
+## Pre-existing Lint Errors (Do Not Fix Unless Asked)
+
+3 errors in existing files: `industry-combobox.tsx`, `client-combobox.tsx`, `theme-colors.tsx` (setState called inside useEffect).
+
+## Current Limitations
+
+- No authentication — `owner_id` is hardcoded to `1` everywhere.
+- `generate_invoice` node in the LangGraph graph is a stub (no PDF generation yet).
+- CORS is wildcard (`*`) for development only.

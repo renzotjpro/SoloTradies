@@ -5,13 +5,33 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ClientCombobox } from "@/components/client-combobox";
 import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Plus,
   Trash2,
   FileText,
   Send,
   Save,
   ArrowRight,
+  CalendarDays,
+  GripVertical,
+  ZoomIn,
+  X,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +70,7 @@ interface LineItem {
   qty: number;
   unit: string;
   price: number;
+  taxable: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -111,6 +132,115 @@ const HEADER_PREVIEWS = {
   ),
 } as const;
 
+// ─── Sortable Line Item Row ───────────────────────────────────────────────────
+
+interface SortableLineItemProps {
+  item: LineItem;
+  lineGst: number;
+  lineWithGst: number;
+  gstMode: "exclusive" | "inclusive";
+  onUpdate: (id: string, field: keyof LineItem, value: string | number | boolean) => void;
+  onRemove: (id: string) => void;
+  formatCurrency: (n: number) => string;
+}
+
+function SortableLineItem({
+  item,
+  lineGst,
+  lineWithGst,
+  onUpdate,
+  onRemove,
+  formatCurrency,
+}: SortableLineItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-1 md:grid-cols-[24px_1fr_70px_100px_100px_60px_100px_40px] gap-3 items-center p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none"
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="size-4" />
+      </button>
+
+      <Input
+        value={item.description}
+        onChange={(e) => onUpdate(item.id, "description", e.target.value)}
+        placeholder="Service or product"
+        className="bg-background"
+      />
+      <Input
+        type="number"
+        min={0}
+        step={0.5}
+        value={item.qty}
+        onChange={(e) => onUpdate(item.id, "qty", parseFloat(e.target.value) || 0)}
+        className="bg-background"
+      />
+      <Select value={item.unit} onValueChange={(v) => onUpdate(item.id, "unit", v)}>
+        <SelectTrigger className="bg-background w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="hour">Hour</SelectItem>
+          <SelectItem value="item">Item</SelectItem>
+          <SelectItem value="day">Day</SelectItem>
+          <SelectItem value="sqm">Sqm</SelectItem>
+          <SelectItem value="metre">Metre</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+        <Input
+          type="number"
+          min={0}
+          step={0.01}
+          value={item.price}
+          onChange={(e) => onUpdate(item.id, "price", parseFloat(e.target.value) || 0)}
+          className="pl-7 bg-background"
+        />
+      </div>
+
+      {/* GST toggle */}
+      <div className="flex justify-center">
+        <Switch
+          checked={item.taxable}
+          onCheckedChange={(checked) => onUpdate(item.id, "taxable", checked)}
+          aria-label="Apply GST to this item"
+        />
+      </div>
+
+      <span className="text-sm font-medium text-right tabular-nums">
+        {formatCurrency(lineWithGst)}
+      </span>
+
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        onClick={() => onRemove(item.id)}
+        className="text-muted-foreground hover:text-red-500"
+      >
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
+  );
+}
+
 // ─── Inner page content (needs BrandingProvider above it) ────────────────────
 
 function NewInvoicePageContent() {
@@ -121,7 +251,7 @@ function NewInvoicePageContent() {
 
   // Load branding settings on mount (same pattern as branding settings page)
   useEffect(() => {
-    fetchBranding().then(loadBranding).catch(() => {});
+    fetchBranding().then(loadBranding).catch(() => { });
   }, [loadBranding]);
 
   // Invoice meta
@@ -132,6 +262,7 @@ function NewInvoicePageContent() {
     d.setDate(d.getDate() + 30);
     return formatDate(d);
   });
+  const [issuedDate] = useState(() => formatDate(new Date()));
 
   // Business info
   const [businessName, setBusinessName] = useState("Your Business Name");
@@ -163,12 +294,22 @@ function NewInvoicePageContent() {
 
   // Line items
   const [items, setItems] = useState<LineItem[]>([
-    { id: crypto.randomUUID(), description: "", qty: 1, unit: "hour", price: 0 },
+    { id: crypto.randomUUID(), description: "", qty: 1, unit: "hour", price: 0, taxable: true },
   ]);
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // GST mode
   const [gstMode, setGstMode] = useState<"exclusive" | "inclusive">("exclusive");
+
+  // Close zoom modal on Escape key
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setPreviewOpen(false);
+    }
+    if (previewOpen) window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewOpen]);
 
   // ─── Computed totals ────────────────────────────────────────────────────────
 
@@ -177,17 +318,22 @@ function NewInvoicePageContent() {
     [items]
   );
 
+  const rawTaxableSubtotal = useMemo(
+    () => items.filter(i => i.taxable).reduce((sum, item) => sum + item.qty * item.price, 0),
+    [items]
+  );
+
   const { subtotal, gst, total } = useMemo(() => {
     if (gstMode === "exclusive") {
-      const g = rawSubtotal * 0.1;
+      const g = rawTaxableSubtotal * 0.1;
       return { subtotal: rawSubtotal, gst: g, total: rawSubtotal + g };
     } else {
-      // Inclusive: line items already contain GST
-      const exGst = rawSubtotal / 1.1;
-      const g = rawSubtotal - exGst;
-      return { subtotal: exGst, gst: g, total: rawSubtotal };
+      const exGst = rawTaxableSubtotal / 1.1;
+      const g = rawTaxableSubtotal - exGst;
+      const nonTaxable = rawSubtotal - rawTaxableSubtotal;
+      return { subtotal: exGst + nonTaxable, gst: g, total: rawSubtotal };
     }
-  }, [rawSubtotal, gstMode]);
+  }, [rawSubtotal, rawTaxableSubtotal, gstMode]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -206,15 +352,29 @@ function NewInvoicePageContent() {
   function addItem() {
     setItems((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), description: "", qty: 1, unit: "hour", price: 0 },
+      { id: crypto.randomUUID(), description: "", qty: 1, unit: "hour", price: 0, taxable: true },
     ]);
   }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setItems((prev) => {
+        const oldIndex = prev.findIndex((i) => i.id === active.id);
+        const newIndex = prev.findIndex((i) => i.id === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  }
+
+  // dnd-kit sensors
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   function removeItem(id: string) {
     setItems((prev) => (prev.length > 1 ? prev.filter((i) => i.id !== id) : prev));
   }
 
-  function updateItem(id: string, field: keyof LineItem, value: string | number) {
+  function updateItem(id: string, field: keyof LineItem, value: string | number | boolean) {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
@@ -316,9 +476,6 @@ function NewInvoicePageContent() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">New Invoice</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Create and send a professional invoice
-          </p>
         </div>
         <div className="flex gap-3">
           <Button
@@ -344,10 +501,10 @@ function NewInvoicePageContent() {
         {/* ══════════════════════════════════════════════════════════
             Left — Invoice Form
         ══════════════════════════════════════════════════════════ */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-3">
           {/* Business & Invoice Header */}
           <Card>
-            <CardContent className="pt-6">
+            <CardContent className="pt-2">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                 {/* Business Info */}
                 <div className="space-y-3 flex-1">
@@ -385,11 +542,11 @@ function NewInvoicePageContent() {
 
           {/* Client Info */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2 pt-0 px-4">
               <CardTitle className="text-base">Bill To</CardTitle>
-              <CardDescription>Client details</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 px-4 pb-4">
+              {/* Row 1: Client + Email — 50/50 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Client *</Label>
@@ -406,8 +563,10 @@ function NewInvoicePageContent() {
                     {selectedClient?.email || "—"}
                   </p>
                 </div>
+              </div>
 
-                {/* Due Date — Select dropdown */}
+              {/* Row 2: Due Date + Issued Date — compact inline side-by-side */}
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="due-date">Due Date</Label>
                   <Select value={dueDateOption} onValueChange={handleDueDateChange}>
@@ -435,9 +594,23 @@ function NewInvoicePageContent() {
                     </p>
                   )}
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="issued-date">Issued Date</Label>
+                  <div className="relative">
+                    <Input
+                      id="issued-date"
+                      type="date"
+                      value={issuedDate}
+                      readOnly
+                      className="pr-8 cursor-default bg-muted/30"
+                    />
+                    <CalendarDays className="absolute right-2 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-4 space-y-2">
+              {/* Notes — unchanged */}
+              <div className="space-y-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
                   id="notes"
@@ -461,100 +634,47 @@ function NewInvoicePageContent() {
             </CardHeader>
             <CardContent>
               {/* Table header */}
-              <div className="hidden md:grid grid-cols-[1fr_80px_100px_100px_80px_100px_40px] gap-3 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
+              <div className="hidden md:grid grid-cols-[24px_1fr_70px_100px_100px_60px_100px_40px] gap-3 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3 px-1">
+                <span />
                 <span>Description</span>
                 <span>Qty</span>
                 <span>Unit</span>
-                <span>Price</span>
-                <span>GST</span>
+                <span>Rate</span>
+                <span className="text-center">GST</span>
                 <span className="text-right">Total</span>
                 <span />
               </div>
 
-              <div className="space-y-3">
-                {items.map((item) => {
-                  const lineTotal = item.qty * item.price;
-                  const lineGst =
-                    gstMode === "exclusive"
-                      ? lineTotal * 0.1
-                      : lineTotal - lineTotal / 1.1;
-                  const lineWithGst =
-                    gstMode === "exclusive" ? lineTotal + lineGst : lineTotal;
-                  return (
-                    <div
-                      key={item.id}
-                      className="grid grid-cols-1 md:grid-cols-[1fr_80px_100px_100px_80px_100px_40px] gap-3 items-center p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
-                    >
-                      <Input
-                        value={item.description}
-                        onChange={(e) =>
-                          updateItem(item.id, "description", e.target.value)
-                        }
-                        placeholder="Service or product"
-                        className="bg-background"
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.5}
-                        value={item.qty}
-                        onChange={(e) =>
-                          updateItem(item.id, "qty", parseFloat(e.target.value) || 0)
-                        }
-                        className="bg-background"
-                      />
-                      <Select
-                        value={item.unit}
-                        onValueChange={(v) => updateItem(item.id, "unit", v)}
-                      >
-                        <SelectTrigger className="bg-background w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hour">Hour</SelectItem>
-                          <SelectItem value="item">Item</SelectItem>
-                          <SelectItem value="day">Day</SelectItem>
-                          <SelectItem value="sqm">Sqm</SelectItem>
-                          <SelectItem value="metre">Metre</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                          $
-                        </span>
-                        <Input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={item.price}
-                          onChange={(e) =>
-                            updateItem(
-                              item.id,
-                              "price",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="pl-7 bg-background"
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {items.map((item) => {
+                      const lineTotal = item.qty * item.price;
+                      const lineGst = item.taxable
+                        ? gstMode === "exclusive"
+                          ? lineTotal * 0.1
+                          : lineTotal - lineTotal / 1.1
+                        : 0;
+                      const lineWithGst =
+                        gstMode === "exclusive" && item.taxable
+                          ? lineTotal + lineGst
+                          : lineTotal;
+                      return (
+                        <SortableLineItem
+                          key={item.id}
+                          item={item}
+                          lineGst={lineGst}
+                          lineWithGst={lineWithGst}
+                          gstMode={gstMode}
+                          onUpdate={updateItem}
+                          onRemove={removeItem}
+                          formatCurrency={formatCurrency}
                         />
-                      </div>
-                      <span className="text-sm text-muted-foreground text-center tabular-nums">
-                        {formatCurrency(lineGst)}
-                      </span>
-                      <span className="text-sm font-medium text-right tabular-nums">
-                        {formatCurrency(lineWithGst)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => removeItem(item.id)}
-                        className="text-muted-foreground hover:text-red-500"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
 
               <Button
                 variant="ghost"
@@ -635,9 +755,12 @@ function NewInvoicePageContent() {
                 Preview
               </CardTitle>
             </CardHeader>
-            <div
-              className="relative overflow-hidden bg-muted/30"
+            {/* Clickable miniature preview */}
+            <button
+              onClick={() => setPreviewOpen(true)}
+              className="group relative w-full overflow-hidden bg-muted/30 block text-left"
               style={{ height: "320px" }}
+              aria-label="Click to zoom preview"
             >
               <div
                 style={{
@@ -649,7 +772,14 @@ function NewInvoicePageContent() {
               >
                 <InvoicePreview invoiceData={livePreviewData} />
               </div>
-            </div>
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center gap-2 text-white drop-shadow-lg">
+                  <ZoomIn className="size-8" strokeWidth={1.5} />
+                  <span className="text-xs font-medium tracking-wide">Zoom In</span>
+                </div>
+              </div>
+            </button>
           </Card>
 
           {/* ── Section 2: Branding & Design ───────────────────────── */}
@@ -687,11 +817,10 @@ function NewInvoicePageContent() {
                     <button
                       key={layout}
                       onClick={() => setFieldImmediate("header_layout", layout)}
-                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all ${
-                        bs.header_layout === layout
-                          ? "border-brand-600 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 ring-1 ring-brand-600/30"
-                          : "border-border hover:bg-muted text-muted-foreground"
-                      }`}
+                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all ${bs.header_layout === layout
+                        ? "border-brand-600 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 ring-1 ring-brand-600/30"
+                        : "border-border hover:bg-muted text-muted-foreground"
+                        }`}
                     >
                       <div className="w-full h-8 rounded overflow-hidden bg-white dark:bg-zinc-800 border border-border/60 flex items-center justify-center">
                         {HEADER_PREVIEWS[layout]}
@@ -699,8 +828,8 @@ function NewInvoicePageContent() {
                       {layout === "full_bar"
                         ? "Full"
                         : layout === "centred"
-                        ? "Centred"
-                        : "Split"}
+                          ? "Centred"
+                          : "Split"}
                     </button>
                   ))}
                 </div>
@@ -727,21 +856,19 @@ function NewInvoicePageContent() {
               <div className="flex rounded-lg border overflow-hidden">
                 <button
                   onClick={() => setGstMode("exclusive")}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                    gstMode === "exclusive"
-                      ? "bg-brand-600 text-white"
-                      : "bg-background text-muted-foreground hover:bg-muted"
-                  }`}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${gstMode === "exclusive"
+                    ? "bg-brand-600 text-white"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
                 >
                   Exclusive
                 </button>
                 <button
                   onClick={() => setGstMode("inclusive")}
-                  className={`flex-1 py-2 text-sm font-medium border-l transition-colors ${
-                    gstMode === "inclusive"
-                      ? "bg-brand-600 text-white"
-                      : "bg-background text-muted-foreground hover:bg-muted"
-                  }`}
+                  className={`flex-1 py-2 text-sm font-medium border-l transition-colors ${gstMode === "inclusive"
+                    ? "bg-brand-600 text-white"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
                 >
                   Inclusive
                 </button>
@@ -755,6 +882,39 @@ function NewInvoicePageContent() {
           </Card>
         </div>
       </div>
+
+      {/* ── Zoom Preview Modal ──────────────────────────────────── */}
+      {previewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ backgroundColor: "rgba(0,0,0,0.65)" }}
+          onClick={() => setPreviewOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Invoice preview"
+        >
+          {/* Modal content — stop propagation so clicking invoice doesn't close */}
+          <div
+            className="relative max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
+            style={{ width: "680px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className="absolute -top-4 -right-4 z-10 size-9 rounded-full bg-white shadow-lg flex items-center justify-center text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="Close preview"
+            >
+              <X className="size-5" />
+            </button>
+
+            {/* Full-size invoice */}
+            <div style={{ pointerEvents: "none" }}>
+              <InvoicePreview invoiceData={livePreviewData} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
