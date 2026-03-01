@@ -2,10 +2,10 @@ import { Search, Settings, Bell } from "lucide-react";
 
 export function Header() {
     return (
-        <header className="flex flex-row items-center justify-between w-full h-20 px-8 text-muted-foreground">
-            {/* Search Bar */}
-            <div className="relative flex items-center bg-muted rounded-full w-96 px-4 py-2 border border-border">
-                <Search className="w-5 h-5 text-muted-foreground" />
+        <header className="flex flex-row items-center justify-between w-full h-16 md:h-20 px-4 md:px-8 text-muted-foreground">
+            {/* Search Bar — hidden on mobile */}
+            <div className="hidden md:flex relative items-center bg-muted rounded-full w-96 px-4 py-2 border border-border">
+                <Search className="w-5 h-5 text-muted-foreground shrink-0" />
                 <input
                     type="text"
                     placeholder="Search invoices or clients"
@@ -18,8 +18,13 @@ export function Header() {
                 </button>
             </div>
 
+            {/* Mobile: search icon */}
+            <button className="md:hidden text-muted-foreground hover:text-foreground transition-colors" aria-label="Search">
+                <Search className="w-5 h-5" />
+            </button>
+
             {/* Right Icons & Profile */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4 md:gap-6">
                 <button className="text-muted-foreground hover:text-foreground transition-colors">
                     <Settings className="w-5 h-5" />
                 </button>
@@ -28,7 +33,7 @@ export function Header() {
                     <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-background"></span>
                 </button>
 
-                <div className="h-10 w-10 rounded-full overflow-hidden border border-border cursor-pointer">
+                <div className="h-9 w-9 md:h-10 md:w-10 rounded-full overflow-hidden border border-border cursor-pointer shrink-0">
                     <img
                         src="https://faces-img.xcdn.link/thumb-luke-12.jpg"
                         alt="User profile"

@@ -162,81 +162,155 @@ function SortableLineItem({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="grid grid-cols-1 md:grid-cols-[24px_1fr_70px_100px_100px_60px_100px_40px] gap-3 items-center p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors"
-    >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none"
-        tabIndex={-1}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="size-4" />
-      </button>
+    <div ref={setNodeRef} style={style}>
+      {/* ─── Mobile card layout (< md) ─────────────────────────────── */}
+      <div className="md:hidden bg-background border border-border rounded-xl p-3 shadow-sm">
+        {/* Row 1: drag handle + delete controls, then description */}
+        <div className="flex items-center justify-between mb-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none p-1 min-h-[44px] flex items-center"
+            tabIndex={-1}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="size-5" />
+          </button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={() => onRemove(item.id)}
+            className="text-muted-foreground hover:text-red-500 min-h-[44px]"
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+        <Input
+          value={item.description}
+          onChange={(e) => onUpdate(item.id, "description", e.target.value)}
+          placeholder="Service or product"
+          className="bg-background mb-3 h-11"
+        />
 
-      <Input
-        value={item.description}
-        onChange={(e) => onUpdate(item.id, "description", e.target.value)}
-        placeholder="Service or product"
-        className="bg-background"
-      />
-      <Input
-        type="number"
-        min={0}
-        step={0.5}
-        value={item.qty}
-        onChange={(e) => onUpdate(item.id, "qty", parseFloat(e.target.value) || 0)}
-        className="bg-background"
-      />
-      <Select value={item.unit} onValueChange={(v) => onUpdate(item.id, "unit", v)}>
-        <SelectTrigger className="bg-background w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="hour">Hour</SelectItem>
-          <SelectItem value="item">Item</SelectItem>
-          <SelectItem value="day">Day</SelectItem>
-          <SelectItem value="sqm">Sqm</SelectItem>
-          <SelectItem value="metre">Metre</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+        {/* Row 2: Qty, Unit, Rate */}
+        <div className="flex gap-2 mb-3">
+          <Input
+            type="number"
+            min={0}
+            step={0.5}
+            value={item.qty}
+            onChange={(e) => onUpdate(item.id, "qty", parseFloat(e.target.value) || 0)}
+            className="bg-background flex-1 min-w-0 h-11"
+            placeholder="Qty"
+          />
+          <Select value={item.unit} onValueChange={(v) => onUpdate(item.id, "unit", v)}>
+            <SelectTrigger className="bg-background flex-1 min-w-0 h-11">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hour">Hour</SelectItem>
+              <SelectItem value="item">Item</SelectItem>
+              <SelectItem value="day">Day</SelectItem>
+              <SelectItem value="sqm">Sqm</SelectItem>
+              <SelectItem value="metre">Metre</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="relative flex-1 min-w-0">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={item.price}
+              onChange={(e) => onUpdate(item.id, "price", parseFloat(e.target.value) || 0)}
+              className="pl-7 bg-background w-full h-11"
+            />
+          </div>
+        </div>
+
+        {/* Row 3: GST toggle + Total */}
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={item.taxable}
+              onCheckedChange={(checked) => onUpdate(item.id, "taxable", checked)}
+              aria-label="Apply GST to this item"
+            />
+            <span className="text-xs text-muted-foreground">GST</span>
+          </div>
+          <span className="text-base font-bold tabular-nums">
+            {formatCurrency(lineWithGst)}
+          </span>
+        </div>
+      </div>
+
+      {/* ─── Desktop table row (md+) ────────────────────────────────── */}
+      <div className="hidden md:grid grid-cols-[24px_1fr_70px_100px_100px_60px_100px_40px] gap-3 items-center p-3 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground touch-none"
+          tabIndex={-1}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <Input
+          value={item.description}
+          onChange={(e) => onUpdate(item.id, "description", e.target.value)}
+          placeholder="Service or product"
+          className="bg-background"
+        />
         <Input
           type="number"
           min={0}
-          step={0.01}
-          value={item.price}
-          onChange={(e) => onUpdate(item.id, "price", parseFloat(e.target.value) || 0)}
-          className="pl-7 bg-background"
+          step={0.5}
+          value={item.qty}
+          onChange={(e) => onUpdate(item.id, "qty", parseFloat(e.target.value) || 0)}
+          className="bg-background"
         />
+        <Select value={item.unit} onValueChange={(v) => onUpdate(item.id, "unit", v)}>
+          <SelectTrigger className="bg-background w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="hour">Hour</SelectItem>
+            <SelectItem value="item">Item</SelectItem>
+            <SelectItem value="day">Day</SelectItem>
+            <SelectItem value="sqm">Sqm</SelectItem>
+            <SelectItem value="metre">Metre</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            value={item.price}
+            onChange={(e) => onUpdate(item.id, "price", parseFloat(e.target.value) || 0)}
+            className="pl-7 bg-background"
+          />
+        </div>
+        <div className="flex justify-center">
+          <Switch
+            checked={item.taxable}
+            onCheckedChange={(checked) => onUpdate(item.id, "taxable", checked)}
+            aria-label="Apply GST to this item"
+          />
+        </div>
+        <span className="text-sm font-medium text-right tabular-nums">
+          {formatCurrency(lineWithGst)}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={() => onRemove(item.id)}
+          className="text-muted-foreground hover:text-red-500"
+        >
+          <Trash2 className="size-4" />
+        </Button>
       </div>
-
-      {/* GST toggle */}
-      <div className="flex justify-center">
-        <Switch
-          checked={item.taxable}
-          onCheckedChange={(checked) => onUpdate(item.id, "taxable", checked)}
-          aria-label="Apply GST to this item"
-        />
-      </div>
-
-      <span className="text-sm font-medium text-right tabular-nums">
-        {formatCurrency(lineWithGst)}
-      </span>
-
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        onClick={() => onRemove(item.id)}
-        className="text-muted-foreground hover:text-red-500"
-      >
-        <Trash2 className="size-4" />
-      </Button>
     </div>
   );
 }
@@ -471,13 +545,14 @@ function NewInvoicePageContent() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto pb-16 md:pb-0">
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">New Invoice</h1>
         </div>
-        <div className="flex gap-3">
+        {/* Action buttons — hidden on mobile (shown in fixed bottom bar) */}
+        <div className="hidden md:flex gap-3">
           <Button
             variant="outline"
             onClick={() => handleSave("Draft")}
@@ -748,8 +823,8 @@ function NewInvoicePageContent() {
             Right — Settings Sidebar
         ══════════════════════════════════════════════════════════ */}
         <div className="space-y-4">
-          {/* ── Section 1: Preview ─────────────────────────────────── */}
-          <Card className="overflow-hidden">
+          {/* ── Section 1: Preview — hidden on mobile (use FAB instead) */}
+          <Card className="overflow-hidden hidden md:block">
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Preview
@@ -881,6 +956,36 @@ function NewInvoicePageContent() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* ── Mobile: Preview FAB (above action bar) ──────────────── */}
+      <button
+        onClick={() => setPreviewOpen(true)}
+        className="md:hidden fixed right-4 bottom-36 z-30 size-12 rounded-full bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center shadow-lg shadow-brand-200 dark:shadow-brand-900/50 transition-colors"
+        aria-label="Preview invoice"
+      >
+        <ZoomIn className="size-5" strokeWidth={2} />
+      </button>
+
+      {/* ── Mobile: Fixed action bar (above bottom nav) ──────────── */}
+      <div className="md:hidden fixed bottom-16 left-0 right-0 z-30 flex gap-3 p-3 bg-background/95 backdrop-blur-sm border-t border-border">
+        <Button
+          variant="outline"
+          onClick={() => handleSave("Draft")}
+          disabled={saving}
+          className="flex-1"
+        >
+          <Save className="size-4" />
+          Save Draft
+        </Button>
+        <Button
+          className="flex-1 bg-brand-600 hover:bg-brand-700 text-white"
+          onClick={() => handleSave("Sent")}
+          disabled={saving}
+        >
+          <Send className="size-4" />
+          Send Invoice
+        </Button>
       </div>
 
       {/* ── Zoom Preview Modal ──────────────────────────────────── */}
