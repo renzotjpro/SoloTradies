@@ -3,13 +3,13 @@
 import { useBranding } from "@/lib/context/BrandingContext";
 
 // ---------------------------------------------------------------------------
-// Sample data — never changes, represents a real invoice
+// Sample data — used as fallback when no live invoiceData is provided
 // ---------------------------------------------------------------------------
 const SAMPLE = {
   invoiceNumber: "INV-1234",
   issued: "28 Feb, 2026",
   due: "14 Mar, 2026",
-  total: "$495.00",
+  grandTotal: "$495.00",
   clientName: "Jane Appleseed",
   clientCompany: "ACME Pty Ltd",
   items: [
@@ -18,8 +18,29 @@ const SAMPLE = {
   ],
   subtotal: "$450.00",
   gst: "$45.00",
-  grandTotal: "$495.00",
 };
+
+// ---------------------------------------------------------------------------
+// InvoiceData — optional live data from the invoice form
+// ---------------------------------------------------------------------------
+export interface InvoiceData {
+  clientName?: string;
+  clientCompany?: string;
+  invoiceNumber?: string;
+  issued?: string;
+  due?: string;
+  grandTotal?: string;
+  items?: Array<{
+    desc: string;
+    qty: number;
+    unit: string;
+    rate: string;
+    gst: string;
+    total: string;
+  }>;
+  subtotal?: string;
+  gst?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,9 +54,22 @@ function px(size: string) {
 // ---------------------------------------------------------------------------
 // InvoicePreview
 // ---------------------------------------------------------------------------
-export function InvoicePreview() {
+export function InvoicePreview({ invoiceData }: { invoiceData?: InvoiceData }) {
   const { state, getLabel } = useBranding();
   const s = state.settings;
+
+  // Merge live data with sample fallbacks
+  const data = {
+    clientName:    invoiceData?.clientName    ?? SAMPLE.clientName,
+    clientCompany: invoiceData?.clientCompany ?? SAMPLE.clientCompany,
+    invoiceNumber: invoiceData?.invoiceNumber ?? SAMPLE.invoiceNumber,
+    issued:        invoiceData?.issued        ?? SAMPLE.issued,
+    due:           invoiceData?.due           ?? SAMPLE.due,
+    grandTotal:    invoiceData?.grandTotal    ?? SAMPLE.grandTotal,
+    items:         invoiceData?.items         ?? SAMPLE.items,
+    subtotal:      invoiceData?.subtotal      ?? SAMPLE.subtotal,
+    gst:           invoiceData?.gst           ?? SAMPLE.gst,
+  };
 
   const baseFont = { fontFamily: s.font_family, fontSize: px(s.font_size) };
   const accentColor = s.colour_graphical;
@@ -77,7 +111,6 @@ export function InvoicePreview() {
         <div style={{ backgroundColor: accentColor }} className="px-7 py-5">
           <div className="flex items-center justify-between">
             <div>
-              {/* Logo placeholder or business name */}
               <div className="text-white font-bold text-lg leading-tight">
                 {s.business_name || s.display_name || "Your Business Name"}
               </div>
@@ -143,8 +176,10 @@ export function InvoicePreview() {
             <div className="text-[9px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
               {L.billTo}
             </div>
-            <div className="font-semibold text-[11px]">{SAMPLE.clientName}</div>
-            <div className="text-[9px] text-gray-500">{SAMPLE.clientCompany}</div>
+            <div className="font-semibold text-[11px]">{data.clientName}</div>
+            {data.clientCompany && (
+              <div className="text-[9px] text-gray-500">{data.clientCompany}</div>
+            )}
             {s.show_client_address && (
               <div className="text-[9px] text-gray-400 mt-0.5">123 Client St, Melbourne VIC 3000</div>
             )}
@@ -156,12 +191,12 @@ export function InvoicePreview() {
           {/* Meta block */}
           <div className="text-right space-y-1 shrink-0">
             {[
-              [L.number, SAMPLE.invoiceNumber],
+              [L.number, data.invoiceNumber],
               ...(s.show_po_number ? [["PO Number", "PO-5678"]] : []),
-              [L.issued, SAMPLE.issued],
+              [L.issued, data.issued],
               ...(s.show_deposit_due_date ? [["Deposit Due", "07 Mar, 2026"]] : []),
-              [L.due, SAMPLE.due],
-              [L.grandTotal, SAMPLE.total],
+              [L.due, data.due],
+              [L.grandTotal, data.grandTotal],
             ].map(([label, val]) => (
               <div key={label} className="flex items-baseline justify-end gap-3">
                 <span className="text-[9px] text-gray-400">{label}</span>
@@ -193,7 +228,7 @@ export function InvoicePreview() {
           </div>
 
           {/* Rows */}
-          {SAMPLE.items.map((item, i) => (
+          {data.items.map((item, i) => (
             <div
               key={i}
               className="grid items-center py-2 px-2 text-[9.5px]"
@@ -227,11 +262,11 @@ export function InvoicePreview() {
               <>
                 <div className="flex justify-between text-[9.5px] text-gray-500">
                   <span>{L.subtotal}</span>
-                  <span>{SAMPLE.subtotal}</span>
+                  <span>{data.subtotal}</span>
                 </div>
                 <div className="flex justify-between text-[9.5px] text-gray-500">
                   <span>{L.gstTotal}</span>
-                  <span>{SAMPLE.gst}</span>
+                  <span>{data.gst}</span>
                 </div>
               </>
             )}
@@ -252,12 +287,12 @@ export function InvoicePreview() {
               style={{ backgroundColor: `${accentColor}15`, color: textColor }}
             >
               <span>{L.grandTotal}</span>
-              <span>{SAMPLE.grandTotal}</span>
+              <span>{data.grandTotal}</span>
             </div>
             {s.show_balance_due && (
               <div className="flex justify-between text-[9.5px] text-gray-500">
                 <span>Amount Due</span>
-                <span>{SAMPLE.grandTotal}</span>
+                <span>{data.grandTotal}</span>
               </div>
             )}
           </div>
@@ -274,9 +309,7 @@ export function InvoicePreview() {
             </div>
             {s.footer_layout === "two_column" ? (
               <div className="grid grid-cols-2 gap-4">
-                <div
-                  className="text-[8.5px] text-gray-500 whitespace-pre-line leading-relaxed"
-                >
+                <div className="text-[8.5px] text-gray-500 whitespace-pre-line leading-relaxed">
                   {s.payment_details || "Bank transfer details here"}
                 </div>
                 <div className="text-[8.5px] text-gray-500 leading-relaxed">
@@ -285,9 +318,7 @@ export function InvoicePreview() {
                 </div>
               </div>
             ) : (
-              <div
-                className="text-[8.5px] text-gray-500 whitespace-pre-line leading-relaxed"
-              >
+              <div className="text-[8.5px] text-gray-500 whitespace-pre-line leading-relaxed">
                 {s.payment_details || "Bank transfer details here"}
               </div>
             )}
@@ -296,9 +327,7 @@ export function InvoicePreview() {
 
         {/* ── Footer message ────────────────────────────────────── */}
         {s.show_footer_message && s.footer_message && (
-          <div
-            className="pt-3 border-t border-gray-100 text-[8.5px] text-gray-400 italic text-center leading-relaxed whitespace-pre-line"
-          >
+          <div className="pt-3 border-t border-gray-100 text-[8.5px] text-gray-400 italic text-center leading-relaxed whitespace-pre-line">
             {s.footer_message}
           </div>
         )}
