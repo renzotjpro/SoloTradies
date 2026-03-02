@@ -835,7 +835,7 @@ function NewInvoicePageContent() {
             {/* Clickable miniature preview */}
             <button
               onClick={() => setPreviewOpen(true)}
-              className="group relative w-full overflow-hidden bg-muted/30 block text-left"
+              className="group relative w-full overflow-hidden bg-muted/30 block text-left px-4"
               style={{ height: "320px" }}
               aria-label="Click to zoom preview"
             >

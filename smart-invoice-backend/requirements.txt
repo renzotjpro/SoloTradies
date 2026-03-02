@@ -9,4 +9,7 @@ langchain-core
 python-dotenv
 pydantic
 reportlab
+weasyprint
+jinja2
 pytest
+supabase

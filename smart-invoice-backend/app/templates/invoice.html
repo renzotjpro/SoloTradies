@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    /* ── Page layout ──────────────────────────────────────────── */
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      color: #333333;
+      background: #ffffff;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .header {
+      background-color: {{ accent_color }};
+      padding: 28px 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .header-left .business-name {
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1.2;
+    }
+
+    .header-left .business-meta {
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 10px;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+
+    .header-right .invoice-title {
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: bold;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: right;
+    }
+
+    /* ── Billing + Meta two-column section ────────────────────── */
+    .billing-section {
+      display: flex;
+      justify-content: space-between;
+      padding: 28px 36px 20px;
+      border-bottom: 1px solid #e8e8e8;
+      gap: 24px;
+    }
+
+    .billing-left {
+      flex: 1;
+    }
+
+    .billing-label {
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #999999;
+      margin-bottom: 6px;
+    }
+
+    .billing-name {
+      font-size: 14px;
+      font-weight: bold;
+      color: #222222;
+      margin-bottom: 2px;
+    }
+
+    .billing-detail {
+      font-size: 10.5px;
+      color: #555555;
+      line-height: 1.6;
+    }
+
+    .billing-right {
+      flex-shrink: 0;
+      min-width: 210px;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 3px 0;
+      gap: 20px;
+    }
+
+    .meta-label {
+      font-size: 10px;
+      color: #888888;
+      white-space: nowrap;
+    }
+
+    .meta-value {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #222222;
+      text-align: right;
+    }
+
+    .meta-row.total-meta .meta-label {
+      font-size: 11px;
+      font-weight: bold;
+      color: {{ accent_color }};
+    }
+
+    .meta-row.total-meta .meta-value {
+      font-size: 14px;
+      font-weight: bold;
+      color: {{ accent_color }};
+    }
+
+    /* ── Line items table ─────────────────────────────────────── */
+    .table-section {
+      padding: 24px 36px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: {{ accent_color }};
+      padding: 6px 8px;
+      border-bottom: 1.5px solid {{ accent_color }};
+      text-align: left;
+    }
+
+    thead th.right {
+      text-align: right;
+    }
+
+    tbody td {
+      padding: 9px 8px;
+      font-size: 10.5px;
+      color: #333333;
+      border-bottom: 1px solid #f0f0f0;
+      vertical-align: top;
+    }
+
+    tbody td.right {
+      text-align: right;
+    }
+
+    tbody td.muted {
+      color: #777777;
+    }
+
+    tbody tr:nth-child(even) {
+      background-color: #fafafa;
+    }
+
+    /* Grand total row */
+    .total-row td {
+      background-color: #f0f0f0 !important;
+      font-weight: bold;
+      font-size: 11px;
+      border-bottom: none;
+      border-top: 1.5px solid #dddddd;
+      padding: 10px 8px;
+    }
+
+    /* ── Totals summary block ─────────────────────────────────── */
+    .totals-section {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0 36px 20px;
+    }
+
+    .totals-block {
+      width: 220px;
+      margin-top: 8px;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 10.5px;
+      color: #555555;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .totals-row.grand {
+      font-weight: bold;
+      font-size: 13px;
+      color: #111111;
+      border-bottom: none;
+      border-top: 1.5px solid #cccccc;
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+
+    /* ── Notes ────────────────────────────────────────────────── */
+    .notes-section {
+      padding: 8px 36px 20px;
+    }
+
+    .notes-label {
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #999999;
+      margin-bottom: 4px;
+    }
+
+    .notes-text {
+      font-size: 10.5px;
+      color: #555555;
+      line-height: 1.6;
+      white-space: pre-line;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    .footer-section {
+      padding: 20px 36px 28px;
+      border-top: 1px solid #e8e8e8;
+      margin-top: 12px;
+    }
+
+    .payment-heading {
+      font-size: 9px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: {{ accent_color }};
+      margin-bottom: 8px;
+    }
+
+    .payment-details {
+      font-size: 10.5px;
+      color: #555555;
+      line-height: 1.8;
+      white-space: pre-line;
+    }
+
+    .thank-you {
+      text-align: center;
+      font-style: italic;
+      color: #999999;
+      font-size: 10px;
+      margin-top: 24px;
+    }
+
+    /* ── Bottom accent bar ────────────────────────────────────── */
+    .bottom-bar {
+      height: 5px;
+      background-color: {{ accent_color }};
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+  <div class="header">
+    <div class="header-left">
+      <div class="business-name">{{ business_name }}</div>
+      <div class="business-meta">
+        {% if abn %}ABN: {{ abn }}<br>{% endif %}
+        {% if phone %}{{ phone }}<br>{% endif %}
+        {% if email_sender %}{{ email_sender }}<br>{% endif %}
+        {% if sender_address %}{{ sender_address }}{% endif %}
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="invoice-title">Tax Invoice</div>
+    </div>
+  </div>
+
+  <!-- ══ BILLING + INVOICE META ══════════════════════════════════════ -->
+  <div class="billing-section">
+
+    <!-- Left: client details -->
+    <div class="billing-left">
+      <div class="billing-label">To</div>
+      {% if client.name %}
+        <div class="billing-name">{{ client.name }}</div>
+      {% endif %}
+      {% if client.company %}
+        <div class="billing-detail">{{ client.company }}</div>
+      {% endif %}
+      {% if client.address %}
+        <div class="billing-detail">{{ client.address }}</div>
+      {% endif %}
+      {% if client.email %}
+        <div class="billing-detail">{{ client.email }}</div>
+      {% endif %}
+      {% if client.abn %}
+        <div class="billing-detail">ABN: {{ client.abn }}</div>
+      {% endif %}
+    </div>
+
+    <!-- Right: invoice meta -->
+    <div class="billing-right">
+      <div class="meta-row">
+        <span class="meta-label">Number</span>
+        <span class="meta-value">{{ invoice_number }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Issued</span>
+        <span class="meta-value">{{ issue_date }}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Due</span>
+        <span class="meta-value">{{ due_date }}</span>
+      </div>
+      <div class="meta-row total-meta">
+        <span class="meta-label">Total</span>
+        <span class="meta-value">{{ total_amount }}</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ LINE ITEMS TABLE ═════════════════════════════════════════════ -->
+  <div class="table-section">
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th class="right" style="width:45px">Qty</th>
+          <th class="right" style="width:70px">Rate</th>
+          <th class="right" style="width:60px">GST</th>
+          <th class="right" style="width:70px">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.description }}</td>
+          <td class="right muted">{{ item.qty_display }}</td>
+          <td class="right muted">{{ item.unit_price_fmt }}</td>
+          <td class="right muted">{{ item.gst_fmt }}</td>
+          <td class="right">{{ item.total_fmt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══ TOTALS SUMMARY ═══════════════════════════════════════════════ -->
+  <div class="totals-section">
+    <div class="totals-block">
+      <div class="totals-row">
+        <span>Subtotal</span>
+        <span>{{ subtotal }}</span>
+      </div>
+      <div class="totals-row">
+        <span>GST (10%)</span>
+        <span>{{ tax_amount }}</span>
+      </div>
+      <div class="totals-row grand">
+        <span>Total</span>
+        <span>{{ total_amount }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ NOTES ════════════════════════════════════════════════════════ -->
+  {% if notes %}
+  <div class="notes-section">
+    <div class="notes-label">Notes</div>
+    <div class="notes-text">{{ notes }}</div>
+  </div>
+  {% endif %}
+
+  <!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
+  {% if payment_details or footer_message %}
+  <div class="footer-section">
+    {% if payment_details %}
+    <div class="payment-heading">Payment Details</div>
+    <div class="payment-details">{{ payment_details }}</div>
+    {% endif %}
+    {% if footer_message %}
+    <div class="thank-you">{{ footer_message }}</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ══ BOTTOM ACCENT BAR ════════════════════════════════════════════ -->
+  <div class="bottom-bar"></div>
+
+</body>
+</html>

@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from supabase import Client
 from typing import List
 
 from app.database import get_supabase
 from app.crud import crud
 from app.schemas import schemas
+from app.utils.pdf_generator import generate_invoice_pdf
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -54,3 +56,35 @@ def delete_invoice(invoice_id: int, sb: Client = Depends(get_supabase)):
     if not success:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return {"detail": "Invoice deleted"}
+
+
+@router.get("/{invoice_id}/pdf")
+def download_invoice_pdf(invoice_id: int, sb: Client = Depends(get_supabase)):
+    owner_id = get_current_user_id()
+    invoice = crud.get_invoice(sb, invoice_id=invoice_id, owner_id=owner_id)
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    # Merge branding (sender details, accent colour, payment info) into the invoice dict
+    branding = crud.get_branding_with_labels(sb, owner_id=owner_id) or {}
+
+    merged = {
+        **invoice,
+        "business_name":   branding.get("business_name") or branding.get("display_name"),
+        "abn":             branding.get("abn"),
+        "phone":           branding.get("phone"),
+        "email_sender":    branding.get("email"),
+        "sender_address":  branding.get("address"),
+        "accent_color":    invoice.get("accent_color") or branding.get("colour_graphical"),
+        "payment_details": branding.get("payment_details"),
+        "footer_message":  branding.get("footer_message") if branding.get("show_footer_message") else None,
+    }
+
+    pdf_bytes = generate_invoice_pdf(merged)
+    safe_num = (invoice.get("invoice_number") or str(invoice_id)).replace("/", "-")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="Invoice_{safe_num}.pdf"'},
+    )
