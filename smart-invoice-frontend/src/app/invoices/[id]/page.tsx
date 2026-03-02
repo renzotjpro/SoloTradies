@@ -22,7 +22,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
-  ArrowRight,
   Save,
   Pencil,
   X,
@@ -474,6 +473,11 @@ function InvoiceDetailPageContent() {
         taxable: item.tax_rate > 0,
       }))
     );
+    // Seed the branding context with the invoice's own saved values so the
+    // edit-mode preview matches the invoice (not global branding defaults).
+    if (invoice.accent_color) setFieldImmediate("colour_graphical", invoice.accent_color);
+    if (invoice.header_layout)
+      setFieldImmediate("header_layout", invoice.header_layout as "full_bar" | "centred" | "split");
     setClientsLoading(true);
     fetch(`${API_BASE}/clients/`)
       .then((r) => r.json())
@@ -485,6 +489,8 @@ function InvoiceDetailPageContent() {
 
   function cancelEdit() {
     setEditing(false);
+    // Restore global branding (undo any accent/layout overrides made during editing)
+    fetchBranding().then(loadBranding).catch(() => { });
   }
 
   function addItem() {
@@ -548,6 +554,8 @@ function InvoiceDetailPageContent() {
           due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
           status: editStatus,
           notes: editNotes.trim() || null,
+          accent_color: bs.colour_graphical,
+          header_layout: bs.header_layout,
           items,
         }),
       });
@@ -555,6 +563,8 @@ function InvoiceDetailPageContent() {
       const updated = await res.json();
       setInvoice(updated);
       setEditing(false);
+      // Restore global branding (undo any accent/layout overrides made during editing)
+      fetchBranding().then(loadBranding).catch(() => { });
     } catch {
       alert("Failed to save invoice.");
     } finally {
@@ -899,8 +909,8 @@ function InvoiceDetailPageContent() {
                         key={layout}
                         onClick={() => setFieldImmediate("header_layout", layout)}
                         className={`flex flex-col items-center gap-1 p-2 rounded-lg border text-[10px] font-medium transition-all ${bs.header_layout === layout
-                            ? "border-brand-600 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 ring-1 ring-brand-600/30"
-                            : "border-border hover:bg-muted text-muted-foreground"
+                          ? "border-brand-600 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-300 ring-1 ring-brand-600/30"
+                          : "border-border hover:bg-muted text-muted-foreground"
                           }`}
                       >
                         <div className="w-full h-8 rounded overflow-hidden bg-white dark:bg-zinc-800 border border-border/60 flex items-center justify-center">
@@ -916,13 +926,6 @@ function InvoiceDetailPageContent() {
                   </div>
                 </div>
 
-                <Link
-                  href="/settings/branding"
-                  className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium"
-                >
-                  Manage full branding
-                  <ArrowRight className="size-3" />
-                </Link>
               </CardContent>
             </Card>
 
@@ -938,8 +941,8 @@ function InvoiceDetailPageContent() {
                   <button
                     onClick={() => setGstMode("exclusive")}
                     className={`flex-1 py-2 text-sm font-medium transition-colors ${gstMode === "exclusive"
-                        ? "bg-brand-600 text-white"
-                        : "bg-background text-muted-foreground hover:bg-muted"
+                      ? "bg-brand-600 text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
                       }`}
                   >
                     Exclusive
@@ -947,8 +950,8 @@ function InvoiceDetailPageContent() {
                   <button
                     onClick={() => setGstMode("inclusive")}
                     className={`flex-1 py-2 text-sm font-medium border-l transition-colors ${gstMode === "inclusive"
-                        ? "bg-brand-600 text-white"
-                        : "bg-background text-muted-foreground hover:bg-muted"
+                      ? "bg-brand-600 text-white"
+                      : "bg-background text-muted-foreground hover:bg-muted"
                       }`}
                   >
                     Inclusive

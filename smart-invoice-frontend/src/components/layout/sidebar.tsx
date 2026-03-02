@@ -12,7 +12,6 @@ import {
     HelpCircle,
     LogOut,
     MessageSquare,
-    Plus,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -78,18 +77,6 @@ export function Sidebar() {
                 ))}
             </nav>
 
-            {/* Create Invoice CTA */}
-            <div className="mt-4 mb-2 px-2 lg:px-4 group-hover/sidebar:px-4">
-                <Link
-                    href="/invoices/new"
-                    className="flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl py-3 transition-colors"
-                >
-                    <Plus className="size-5 shrink-0" strokeWidth={2.5} />
-                    <span className="font-medium whitespace-nowrap hidden lg:block group-hover/sidebar:block">
-                        Create Invoice
-                    </span>
-                </Link>
-            </div>
 
             {/* Logout */}
             <div className="px-2 lg:px-4 group-hover/sidebar:px-4">
