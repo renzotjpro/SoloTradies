@@ -134,6 +134,8 @@ def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
         "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
         "status": invoice.status or "Draft",
         "notes": invoice.notes,
+        "accent_color": invoice.accent_color,
+        "header_layout": invoice.header_layout,
         "subtotal": round(subtotal, 2),
         "tax_amount": round(tax_amount, 2),
         "total_amount": round(total_amount, 2),
@@ -175,6 +177,10 @@ def update_invoice(sb: Client, invoice_id: int, invoice_data: schemas.InvoiceUpd
         update_fields["status"] = invoice_data.status
     if invoice_data.notes is not None:
         update_fields["notes"] = invoice_data.notes
+    if invoice_data.accent_color is not None:
+        update_fields["accent_color"] = invoice_data.accent_color
+    if invoice_data.header_layout is not None:
+        update_fields["header_layout"] = invoice_data.header_layout
 
     # If items provided, replace all line items and recompute totals
     if invoice_data.items is not None:

@@ -60,6 +60,8 @@ class InvoiceCreate(BaseModel):
     due_date: Optional[datetime] = None
     status: Optional[str] = "Draft"
     notes: Optional[str] = None
+    accent_color: Optional[str] = None
+    header_layout: Optional[str] = None
     items: List[InvoiceItemCreate]
 
 class Invoice(BaseModel):
@@ -73,6 +75,8 @@ class Invoice(BaseModel):
     tax_amount: float
     total_amount: float
     notes: Optional[str] = None
+    accent_color: Optional[str] = None
+    header_layout: Optional[str] = None
     owner_id: int
     client_id: int
     client: Optional[Client] = None
@@ -88,6 +92,8 @@ class InvoiceUpdate(BaseModel):
     due_date: Optional[datetime] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    accent_color: Optional[str] = None
+    header_layout: Optional[str] = None
     items: Optional[List[InvoiceItemCreate]] = None
 
 class InvoiceStatusUpdate(BaseModel):

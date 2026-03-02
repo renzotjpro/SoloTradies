@@ -11,7 +11,6 @@ import {
   X,
   Trash2,
   Plus,
-  FileText,
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,15 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { BrandingProvider, useBranding } from "@/lib/context/BrandingContext";
+import { fetchBranding } from "@/lib/api/branding";
+import { InvoicePreview } from "@/app/settings/branding/components/InvoicePreview";
 
 const API_BASE = "http://localhost:8000";
 
@@ -74,6 +67,8 @@ interface Invoice {
   client_id: number;
   client: ClientOption | null;
   notes: string | null;
+  accent_color: string | null;
+  header_layout: string | null;
   items: InvoiceItem[];
 }
 
@@ -120,10 +115,12 @@ function statusColor(status: string): string {
   }
 }
 
-export default function InvoiceDetailPage() {
+function InvoiceDetailPageContent() {
   const router = useRouter();
   const params = useParams();
   const invoiceId = params.id as string;
+
+  const { load: loadBranding } = useBranding();
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,6 +160,10 @@ export default function InvoiceDetailPage() {
     }
     fetchInvoice();
   }, [invoiceId]);
+
+  useEffect(() => {
+    fetchBranding().then(loadBranding).catch(() => {});
+  }, [loadBranding]);
 
   function enterEditMode() {
     if (!invoice) return;
@@ -590,72 +591,38 @@ export default function InvoiceDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Line Items */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Line Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">GST</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoice.items.map((item) => {
-                    const itemGst = item.amount * item.tax_rate;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
-                          {item.description}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCurrency(item.unit_price)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatCurrency(itemGst)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums font-medium">
-                          {formatCurrency(item.amount + itemGst)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Totals */}
-            <Separator className="my-6" />
-            <div className="flex justify-end">
-              <div className="w-full max-w-xs space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="tabular-nums">{formatCurrency(invoice.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">GST (10%)</span>
-                  <span className="tabular-nums">{formatCurrency(invoice.tax_amount)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-semibold text-lg">
-                  <span>Total</span>
-                  <span className="tabular-nums">{formatCurrency(invoice.total_amount)}</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Invoice Preview */}
+        <InvoicePreview
+          invoiceData={{
+            accentColor: invoice.accent_color ?? undefined,
+            headerLayout: invoice.header_layout ?? undefined,
+            clientName: invoice.client?.name,
+            clientCompany: invoice.client?.company ?? undefined,
+            invoiceNumber: invoice.invoice_number,
+            issued: formatDate(invoice.issue_date),
+            due: invoice.due_date ? formatDate(invoice.due_date) : "No due date",
+            grandTotal: formatCurrency(invoice.total_amount),
+            subtotal: formatCurrency(invoice.subtotal),
+            gst: formatCurrency(invoice.tax_amount),
+            items: invoice.items.map((item) => ({
+              desc: item.description,
+              qty: item.quantity,
+              unit: "Unit",
+              rate: formatCurrency(item.unit_price),
+              gst: formatCurrency(item.amount * item.tax_rate),
+              total: formatCurrency(item.amount),
+            })),
+          }}
+        />
       </div>
     </div>
+  );
+}
+
+export default function InvoiceDetailPage() {
+  return (
+    <BrandingProvider>
+      <InvoiceDetailPageContent />
+    </BrandingProvider>
   );
 }

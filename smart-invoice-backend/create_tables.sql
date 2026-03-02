@@ -46,14 +46,20 @@ CREATE TABLE invoices (
 	subtotal FLOAT, 
 	tax_amount FLOAT, 
 	total_amount FLOAT, 
-	notes VARCHAR, 
-	client_id INTEGER, 
-	owner_id INTEGER, 
-	created_at TIMESTAMP WITHOUT TIME ZONE, 
-	updated_at TIMESTAMP WITHOUT TIME ZONE, 
+	notes VARCHAR,
+	client_id INTEGER,
+	owner_id INTEGER,
+	accent_color VARCHAR(50),
+	header_layout VARCHAR(50),
+	created_at TIMESTAMP WITHOUT TIME ZONE,
+	updated_at TIMESTAMP WITHOUT TIME ZONE,
 	PRIMARY KEY (id),
 	FOREIGN KEY(client_id) REFERENCES clients (id)
 )
+
+-- Migration (run in Supabase if table already exists):
+-- ALTER TABLE invoices ADD COLUMN accent_color VARCHAR(50);
+-- ALTER TABLE invoices ADD COLUMN header_layout VARCHAR(50);
 
 
 CREATE INDEX ix_invoices_id ON invoices (id)

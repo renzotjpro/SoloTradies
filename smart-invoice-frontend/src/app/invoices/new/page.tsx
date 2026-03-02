@@ -487,6 +487,8 @@ function NewInvoicePageContent() {
           due_date: dueDate ? new Date(dueDate).toISOString() : null,
           status,
           notes: notes.trim() || null,
+          accent_color: bs.colour_graphical,
+          header_layout: bs.header_layout,
           items: invoiceItems,
         }),
       });
