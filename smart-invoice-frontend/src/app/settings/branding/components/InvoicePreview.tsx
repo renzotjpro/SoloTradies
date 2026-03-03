@@ -114,10 +114,10 @@ export function InvoicePreview({ invoiceData }: { invoiceData?: InvoiceData }) {
         <div style={{ backgroundColor: accentColor }} className="px-7 py-5">
           <div className="flex items-start justify-between">
             <div>
-              <div className="text-white font-bold text-[1.7em] leading-tight">
+              <div className="font-bold text-[1.7em] leading-tight" style={{ color: textColor }}>
                 {s.business_name || s.display_name || "Your Business Name"}
               </div>
-              <div className="text-white/70 text-[0.85em] mt-0.5 leading-relaxed">
+              <div className="text-[0.85em] mt-0.5 leading-relaxed" style={{ color: textColor, opacity: 0.7 }}>
                 {s.abn && <div>ABN: {s.abn}</div>}
                 {s.phone && <div>{s.phone}</div>}
                 {s.email && <div>{s.email}</div>}
@@ -125,8 +125,8 @@ export function InvoicePreview({ invoiceData }: { invoiceData?: InvoiceData }) {
               </div>
             </div>
             <div
-              className="text-right text-white font-bold tracking-wider shrink-0"
-              style={{ color: textColor === "#333333" ? "white" : textColor, fontSize: "16px" }}
+              className="text-right font-bold tracking-wider shrink-0"
+              style={{ color: textColor, fontSize: "16px" }}
             >
               {L.invoiceTitle}
             </div>

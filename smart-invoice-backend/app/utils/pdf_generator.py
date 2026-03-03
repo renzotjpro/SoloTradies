@@ -49,6 +49,7 @@ def generate_invoice_pdf(invoice_data: dict) -> bytes:
         "email_sender":    invoice_data.get("email_sender"),
         "sender_address":  invoice_data.get("sender_address"),
         "accent_color":    accent,
+        "text_color":      invoice_data.get("text_color") or "#ffffff",
         "header_layout":   invoice_data.get("header_layout") or "full_bar",
         "payment_details": invoice_data.get("payment_details"),
         "footer_message":  invoice_data.get("footer_message"),

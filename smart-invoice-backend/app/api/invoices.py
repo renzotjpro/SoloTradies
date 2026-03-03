@@ -79,6 +79,7 @@ def download_invoice_pdf(invoice_id: int, sb: Client = Depends(get_supabase)):
         "header_layout":   invoice.get("header_layout") or branding.get("header_layout") or "full_bar",
         "payment_details": branding.get("payment_details"),
         "footer_message":  branding.get("footer_message") if branding.get("show_footer_message") else None,
+        "text_color":      branding.get("colour_text") or "#ffffff",
     }
 
     pdf_bytes = generate_invoice_pdf(merged)
