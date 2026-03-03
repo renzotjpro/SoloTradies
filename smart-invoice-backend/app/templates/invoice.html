@@ -276,6 +276,42 @@
 <body>
 
   <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+  {% if header_layout == "centred" %}
+  <!-- ── CENTRED ── -->
+  <div style="padding: 28px 36px 20px; text-align: center; border-bottom: 1px solid #e8e8e8;">
+    <div style="display: inline-block; background-color: {{ accent_color }}; color: white;
+                font-size: 18px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase;
+                padding: 6px 16px; border-radius: 4px; margin-bottom: 12px;">
+      TAX INVOICE
+    </div>
+    <div style="font-size: 20px; font-weight: bold; color: #222;">{{ business_name }}</div>
+    {% if abn %}<div style="font-size: 10px; color: #999; margin-top: 2px;">ABN: {{ abn }}</div>{% endif %}
+    {% if phone %}<div style="font-size: 10px; color: #777;">{{ phone }}</div>{% endif %}
+    {% if email_sender %}<div style="font-size: 10px; color: #777;">{{ email_sender }}</div>{% endif %}
+  </div>
+
+  {% elif header_layout == "split" %}
+  <!-- ── SPLIT (CSS table — WeasyPrint safe) ── -->
+  <div style="padding: 28px 36px 20px; border-bottom: 1px solid #e8e8e8;
+              display: table; width: 100%; table-layout: fixed;">
+    <div style="display: table-cell; vertical-align: top;">
+      <div style="font-size: 20px; font-weight: bold; color: #222;">{{ business_name }}</div>
+      {% if abn %}<div style="font-size: 10px; color: #999; margin-top: 2px;">ABN: {{ abn }}</div>{% endif %}
+      {% if sender_address %}<div style="font-size: 10px; color: #777; margin-top: 4px; white-space: pre-line;">{{ sender_address }}</div>{% endif %}
+      {% if phone %}<div style="font-size: 10px; color: #777;">{{ phone }}</div>{% endif %}
+      {% if email_sender %}<div style="font-size: 10px; color: #777;">{{ email_sender }}</div>{% endif %}
+    </div>
+    <div style="display: table-cell; vertical-align: top; text-align: right; width: 160px;">
+      <div style="display: inline-block; background-color: {{ accent_color }}; color: white;
+                  font-size: 18px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase;
+                  padding: 6px 14px; border-radius: 4px;">
+        TAX INVOICE
+      </div>
+    </div>
+  </div>
+
+  {% else %}
+  <!-- ── FULL BAR (default) ── -->
   <div class="header">
     <div class="header-left">
       <div class="business-name">{{ business_name }}</div>
@@ -290,6 +326,7 @@
       <div class="invoice-title">Tax Invoice</div>
     </div>
   </div>
+  {% endif %}
 
   <!-- ══ BILLING + INVOICE META ══════════════════════════════════════ -->
   <div class="billing-section">

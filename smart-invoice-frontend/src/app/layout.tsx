@@ -4,7 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ColorThemeProvider } from "@/lib/theme-colors";
 import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
 import { BottomTabNav } from "@/components/layout/bottom-tab-nav";
 import { Toaster } from "sonner";
 
@@ -48,8 +47,7 @@ export default function RootLayout({
             <div className="flex min-h-screen">
               <Sidebar />
               <div className="flex-1 ml-0 md:ml-20 lg:ml-64 flex flex-col min-h-screen">
-                <Header />
-                <main className="flex-1 px-4 md:px-8 pt-0 pb-20 md:pb-6">
+                <main className="flex-1 px-4 md:px-8 pt-6 pb-20 md:pb-6">
                   {children}
                 </main>
               </div>

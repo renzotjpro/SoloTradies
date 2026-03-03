@@ -76,6 +76,7 @@ def download_invoice_pdf(invoice_id: int, sb: Client = Depends(get_supabase)):
         "email_sender":    branding.get("email"),
         "sender_address":  branding.get("address"),
         "accent_color":    invoice.get("accent_color") or branding.get("colour_graphical"),
+        "header_layout":   invoice.get("header_layout") or branding.get("header_layout") or "full_bar",
         "payment_details": branding.get("payment_details"),
         "footer_message":  branding.get("footer_message") if branding.get("show_footer_message") else None,
     }

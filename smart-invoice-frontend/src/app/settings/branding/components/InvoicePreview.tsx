@@ -62,15 +62,15 @@ export function InvoicePreview({ invoiceData }: { invoiceData?: InvoiceData }) {
 
   // Merge live data with sample fallbacks
   const data = {
-    clientName:    invoiceData?.clientName    ?? SAMPLE.clientName,
+    clientName: invoiceData?.clientName ?? SAMPLE.clientName,
     clientCompany: invoiceData?.clientCompany ?? SAMPLE.clientCompany,
     invoiceNumber: invoiceData?.invoiceNumber ?? SAMPLE.invoiceNumber,
-    issued:        invoiceData?.issued        ?? SAMPLE.issued,
-    due:           invoiceData?.due           ?? SAMPLE.due,
-    grandTotal:    invoiceData?.grandTotal    ?? SAMPLE.grandTotal,
-    items:         invoiceData?.items         ?? SAMPLE.items,
-    subtotal:      invoiceData?.subtotal      ?? SAMPLE.subtotal,
-    gst:           invoiceData?.gst           ?? SAMPLE.gst,
+    issued: invoiceData?.issued ?? SAMPLE.issued,
+    due: invoiceData?.due ?? SAMPLE.due,
+    grandTotal: invoiceData?.grandTotal ?? SAMPLE.grandTotal,
+    items: invoiceData?.items ?? SAMPLE.items,
+    subtotal: invoiceData?.subtotal ?? SAMPLE.subtotal,
+    gst: invoiceData?.gst ?? SAMPLE.gst,
   };
 
   const baseFont = { fontFamily: s.font_family, fontSize: px(s.font_size) };
@@ -112,17 +112,20 @@ export function InvoicePreview({ invoiceData }: { invoiceData?: InvoiceData }) {
       {/* ══ HEADER ═══════════════════════════════════════════════════ */}
       {resolvedHeaderLayout === "full_bar" && (
         <div style={{ backgroundColor: accentColor }} className="px-7 py-5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between">
             <div>
               <div className="text-white font-bold text-[1.7em] leading-tight">
                 {s.business_name || s.display_name || "Your Business Name"}
               </div>
-              {s.abn && (
-                <div className="text-white/70 text-[0.85em] mt-0.5">ABN: {s.abn}</div>
-              )}
+              <div className="text-white/70 text-[0.85em] mt-0.5 leading-relaxed">
+                {s.abn && <div>ABN: {s.abn}</div>}
+                {s.phone && <div>{s.phone}</div>}
+                {s.email && <div>{s.email}</div>}
+                {s.address && <div className="whitespace-pre-line">{s.address}</div>}
+              </div>
             </div>
             <div
-              className="text-right text-white font-bold tracking-wider"
+              className="text-right text-white font-bold tracking-wider shrink-0"
               style={{ color: textColor === "#333333" ? "white" : textColor, fontSize: "16px" }}
             >
               {L.invoiceTitle}
