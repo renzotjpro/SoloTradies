@@ -586,6 +586,22 @@ function InvoiceDetailPageContent() {
     }
   }
 
+  async function handleUpdateStatus(newStatus: string) {
+    try {
+      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      const updated = await res.json();
+      setInvoice(updated);
+      toast.success(`Invoice marked as ${newStatus.toLowerCase()}`);
+    } catch {
+      toast.error("Failed to update invoice status.");
+    }
+  }
+
   // Loading / Error states
   if (loading) {
     return (
@@ -1154,10 +1170,17 @@ function InvoiceDetailPageContent() {
                 See client view
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => { }}>
-                <RotateCcw className="size-4 mr-2" />
-                Revert to draft
-              </DropdownMenuItem>
+              {invoice.status === "Paid" ? (
+                <DropdownMenuItem onClick={() => handleUpdateStatus("Draft")}>
+                  <RotateCcw className="size-4 mr-2" />
+                  Revert to draft
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => handleUpdateStatus("Paid")}>
+                  <CheckCircle className="size-4 mr-2" />
+                  Mark as paid
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => { }}>
                 <Copy className="size-4 mr-2" />
                 Duplicate
