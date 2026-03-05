@@ -14,7 +14,7 @@ type ChatActiveProps = {
 export function ChatActive({ messages, isGenerating, onSend, onQuickReply }: ChatActiveProps) {
     return (
         <div className="flex flex-col h-[calc(100vh-8rem)]">
-            <div className="flex-1 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+            <div className="flex-1 bg-gradient-to-b from-[#F0F4FF] via-[#F5F8FF] to-[#EEF3FF] rounded-3xl border border-indigo-100 shadow-lg flex flex-col overflow-hidden">
                 <MessageList messages={messages} isGenerating={isGenerating} onQuickReply={onQuickReply} />
                 <PromptInput onSubmit={onSend} disabled={isGenerating} variant="compact" />
             </div>

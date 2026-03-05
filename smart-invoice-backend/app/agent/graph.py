@@ -128,8 +128,21 @@ def check_client_db(state: AgentState):
     data: Optional[InvoiceData] = state.get("extracted_data")
 
     if not data or not data.client_name:
-        # No client name yet — ask for it
-        msg = AIMessage(content="To get started, could you tell me which client you'd like to invoice?")
+        # Detect if the user's last message is a simple greeting
+        messages = state.get("messages", [])
+        last_human = next(
+            (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
+        )
+        greeting_words = {"hi", "hello", "hey", "hiya", "howdy", "g'day", "gday", "sup", "yo"}
+        is_greeting = (
+            last_human
+            and last_human.content.strip().lower().rstrip("!,.?") in greeting_words
+        )
+
+        if is_greeting:
+            msg = AIMessage(content="Hey there! 👋 Ready to knock out an invoice? Who are we billing today?")
+        else:
+            msg = AIMessage(content="To get started, could you tell me which client you'd like to invoice?")
         return {"messages": [msg], "client_status": None}
 
     # If we already resolved the client in a previous turn, skip the DB call

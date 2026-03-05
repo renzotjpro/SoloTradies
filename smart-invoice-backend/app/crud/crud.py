@@ -312,6 +312,119 @@ def delete_expense(sb: Client, expense_id: int, owner_id: int):
     return True
 
 # --- Dashboard Stats ---
+def get_overview_stats(sb: Client, owner_id: int) -> schemas.OverviewStats:
+    from datetime import date
+    today = date.today()
+    first_of_month = today.replace(day=1).isoformat()
+
+    # Total invoice count
+    all_invoices = sb.table("invoices").select("id").eq("owner_id", owner_id).execute()
+    total_invoices = len(all_invoices.data)
+
+    # Outstanding amount (Draft, Sent, Overdue)
+    outstanding = (
+        sb.table("invoices")
+        .select("total_amount")
+        .eq("owner_id", owner_id)
+        .in_("status", ["Draft", "Sent", "Overdue"])
+        .execute()
+    )
+    outstanding_amount = sum(row["total_amount"] for row in outstanding.data)
+
+    # Paid this month (using updated_at as proxy for payment date)
+    paid_month = (
+        sb.table("invoices")
+        .select("total_amount")
+        .eq("owner_id", owner_id)
+        .eq("status", "Paid")
+        .gte("updated_at", first_of_month)
+        .execute()
+    )
+    paid_this_month = sum(row["total_amount"] for row in paid_month.data)
+
+    # Upcoming payments: invoices with Sent or Overdue status awaiting collection
+    upcoming = (
+        sb.table("invoices")
+        .select("id")
+        .eq("owner_id", owner_id)
+        .in_("status", ["Sent", "Overdue"])
+        .execute()
+    )
+    upcoming_payments = len(upcoming.data)
+
+    return schemas.OverviewStats(
+        total_invoices=total_invoices,
+        outstanding_amount=float(outstanding_amount),
+        paid_this_month=float(paid_this_month),
+        upcoming_payments=upcoming_payments,
+    )
+
+
+def get_cashflow_summary(sb: Client, owner_id: int, months_back: int = 6) -> list:
+    from datetime import date
+    from collections import defaultdict
+
+    today = date.today()
+    # Build ordered list of (year, month) for the last `months_back` months
+    month_keys = []
+    for i in range(months_back - 1, -1, -1):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_keys.append((y, m))
+
+    # Start date = first of the earliest month
+    start_year, start_month = month_keys[0]
+    start_date = date(start_year, start_month, 1).isoformat()
+
+    result = (
+        sb.table("invoices")
+        .select("total_amount, updated_at")
+        .eq("owner_id", owner_id)
+        .eq("status", "Paid")
+        .gte("updated_at", start_date)
+        .execute()
+    )
+
+    monthly: dict = defaultdict(float)
+    for row in result.data:
+        dt_str = row["updated_at"]
+        # Parse ISO datetime (handles both +00:00 and Z suffixes)
+        dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+        key = (dt.year, dt.month)
+        monthly[key] += row["total_amount"]
+
+    return [
+        schemas.CashflowDataPoint(
+            month=datetime(y, m, 1).strftime("%b"),
+            amount=float(monthly.get((y, m), 0)),
+        )
+        for y, m in month_keys
+    ]
+
+
+def get_invoice_status_summary(sb: Client, owner_id: int) -> list:
+    result = (
+        sb.table("invoices")
+        .select("status, total_amount")
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+
+    status_totals: dict = {"Draft": 0.0, "Sent": 0.0, "Paid": 0.0, "Overdue": 0.0}
+    for row in result.data:
+        status = row["status"]
+        if status in status_totals:
+            status_totals[status] += row["total_amount"]
+
+    return [
+        schemas.InvoiceStatusDataPoint(status=status, amount=float(amount))
+        for status, amount in status_totals.items()
+    ]
+
+
 def get_dashboard_stats(sb: Client, owner_id: int) -> schemas.DashboardStats:
     # Revenue and GST from paid invoices
     paid = (

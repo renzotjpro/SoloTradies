@@ -160,6 +160,20 @@ class DashboardStats(BaseModel):
     gst_collected: float       # sum of tax_amount from paid invoices
     gst_claimable: float       # sum of gst_included from expenses
 
+class OverviewStats(BaseModel):
+    total_invoices: int
+    outstanding_amount: float
+    paid_this_month: float
+    upcoming_payments: int
+
+class CashflowDataPoint(BaseModel):
+    month: str
+    amount: float
+
+class InvoiceStatusDataPoint(BaseModel):
+    status: str
+    amount: float
+
 # --- Organization Schemas ---
 class OrganizationBase(BaseModel):
     name: str
