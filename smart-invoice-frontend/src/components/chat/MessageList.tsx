@@ -19,7 +19,7 @@ export function MessageList({ messages, isGenerating, onQuickReply }: MessageLis
     }, [messages, isGenerating]);
 
     return (
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30 dark:bg-transparent">
             {messages.map((message) => (
                 <ChatMessageBubble
                     key={message.id}

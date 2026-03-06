@@ -329,7 +329,7 @@ def get_overview_stats(sb: Client, owner_id: int) -> schemas.OverviewStats:
         .in_("status", ["Draft", "Sent", "Overdue"])
         .execute()
     )
-    outstanding_amount = sum(row["total_amount"] for row in outstanding.data)
+    outstanding_amount = sum(row["total_amount"] or 0 for row in outstanding.data)
 
     # Paid this month (using updated_at as proxy for payment date)
     paid_month = (
@@ -340,7 +340,7 @@ def get_overview_stats(sb: Client, owner_id: int) -> schemas.OverviewStats:
         .gte("updated_at", first_of_month)
         .execute()
     )
-    paid_this_month = sum(row["total_amount"] for row in paid_month.data)
+    paid_this_month = sum(row["total_amount"] or 0 for row in paid_month.data)
 
     # Upcoming payments: invoices with Sent or Overdue status awaiting collection
     upcoming = (
