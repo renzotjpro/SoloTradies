@@ -28,7 +28,7 @@ class ClientUpdate(BaseModel):
 
 class Client(ClientBase):
     id: int
-    owner_id: int
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -77,7 +77,7 @@ class Invoice(BaseModel):
     notes: Optional[str] = None
     accent_color: Optional[str] = None
     header_layout: Optional[str] = None
-    owner_id: int
+    owner_id: str
     client_id: int
     client: Optional[Client] = None
     items: List[InvoiceItemResponse] = []
@@ -128,7 +128,7 @@ class Expense(BaseModel):
     receipt_url: Optional[str] = None
     client_id: Optional[int] = None
     invoice_id: Optional[int] = None
-    owner_id: int
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -208,7 +208,7 @@ class OrganizationUpdate(BaseModel):
 
 class Organization(OrganizationBase):
     id: int
-    owner_id: int
+    owner_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -272,7 +272,7 @@ class BrandingSettingsUpdate(BrandingSettingsBase):
 
 class BrandingSettings(BrandingSettingsBase):
     id: str
-    owner_id: int
+    owner_id: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -289,7 +289,7 @@ class CustomLabelUpdate(BaseModel):
 
 class CustomLabel(BaseModel):
     id: str
-    owner_id: int
+    owner_id: str
     label_key: str
     label_value: str
     created_at: datetime

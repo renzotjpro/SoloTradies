@@ -1,6 +1,6 @@
 export type Organization = {
   id: number;
-  owner_id: number;
+  owner_id: string;
   name: string;
   abn: string | null;
   industry: string | null;

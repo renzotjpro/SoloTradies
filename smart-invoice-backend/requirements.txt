@@ -8,6 +8,7 @@ langchain-anthropic
 langchain-core
 python-dotenv
 pydantic
+PyJWT
 reportlab
 weasyprint
 jinja2

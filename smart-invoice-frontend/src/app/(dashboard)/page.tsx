@@ -15,8 +15,7 @@ import {
   type CashflowDataPoint,
   type InvoiceStatusDataPoint,
 } from "@/lib/api/dashboard";
-
-const INVOICES_API = "http://localhost:8000/api/v1/invoices";
+import { authFetch } from "@/lib/api/authFetch";
 
 const STATUS_COLORS: Record<string, string> = {
   Draft: "#d1fae5",
@@ -83,7 +82,7 @@ export default function Dashboard() {
           fetchOverviewStats(),
           fetchCashflow(),
           fetchInvoiceStats(),
-          fetch(`${INVOICES_API}?limit=5`),
+          authFetch(`/invoices/?limit=5`),
         ]);
 
         setOverview(overviewData);
@@ -215,7 +214,8 @@ export default function Dashboard() {
                     <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 12 }} tickFormatter={formatAxisAmount} />
                     <Tooltip
                       contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                      formatter={(val: number) => [formatCurrency(val), "Cash in"]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(val: any) => [formatCurrency(val as number), "Cash in"]}
                     />
                     <Area type="monotone" dataKey="flow" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorFlow)" />
                   </AreaChart>
@@ -237,7 +237,8 @@ export default function Dashboard() {
                     <Tooltip
                       cursor={{ fill: "transparent" }}
                       contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                      formatter={(val: number) => [formatCurrency(val), "Amount"]}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      formatter={(val: any) => [formatCurrency(val as number), "Amount"]}
                     />
                     <Bar dataKey="value" radius={[8, 8, 8, 8]}>
                       {barData.map((entry, index) => (

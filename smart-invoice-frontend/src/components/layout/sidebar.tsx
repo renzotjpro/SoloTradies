@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard,
     FileText,
@@ -13,9 +13,18 @@ import {
     LogOut,
     MessageSquare,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 export function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        router.push('/login');
+        router.refresh();
+    };
     const navItems = [
         { label: "Dashboard", href: "/", icon: LayoutDashboard },
         { label: "AI Chat", href: "/chat", icon: MessageSquare },
@@ -80,15 +89,15 @@ export function Sidebar() {
 
             {/* Logout */}
             <div className="px-2 lg:px-4 group-hover/sidebar:px-4">
-                <Link
-                    href="/logout"
-                    className="flex items-center justify-center lg:justify-start group-hover/sidebar:justify-start gap-3 py-3 text-sidebar-foreground/60 hover:text-red-500 transition-colors"
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center justify-center lg:justify-start group-hover/sidebar:justify-start gap-3 py-3 w-full text-sidebar-foreground/60 hover:text-red-500 transition-colors"
                 >
                     <LogOut className="w-5 h-5 shrink-0" />
                     <span className="font-medium whitespace-nowrap hidden lg:block group-hover/sidebar:block">
                         Logout
                     </span>
-                </Link>
+                </button>
             </div>
         </aside>
     );

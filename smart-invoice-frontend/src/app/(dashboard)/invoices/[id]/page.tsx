@@ -72,9 +72,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { BrandingProvider, useBranding } from "@/lib/context/BrandingContext";
 import { fetchBranding } from "@/lib/api/branding";
-import { InvoicePreview } from "@/app/settings/branding/components/InvoicePreview";
-
-const API_BASE = "http://localhost:8000";
+import { InvoicePreview } from "@/app/(dashboard)/settings/branding/components/InvoicePreview";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface ClientOption {
   id: number;
@@ -440,7 +439,7 @@ function InvoiceDetailPageContent() {
   useEffect(() => {
     async function fetchInvoice() {
       try {
-        const res = await fetch(`${API_BASE}/invoices/${invoiceId}`);
+        const res = await authFetch(`/invoices/${invoiceId}`);
         if (!res.ok) throw new Error("Invoice not found");
         const data = await res.json();
         setInvoice(data);
@@ -479,7 +478,7 @@ function InvoiceDetailPageContent() {
     if (invoice.header_layout)
       setFieldImmediate("header_layout", invoice.header_layout as "full_bar" | "centred" | "split");
     setClientsLoading(true);
-    fetch(`${API_BASE}/clients/`)
+    authFetch(`/clients/`)
       .then((r) => r.json())
       .then(setClients)
       .catch(() => { })
@@ -546,7 +545,7 @@ function InvoiceDetailPageContent() {
       }));
 
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+      const res = await authFetch(`/invoices/${invoiceId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -576,7 +575,7 @@ function InvoiceDetailPageContent() {
     if (!confirm("Are you sure you want to delete this invoice? This cannot be undone."))
       return;
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+      const res = await authFetch(`/invoices/${invoiceId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");
@@ -588,7 +587,7 @@ function InvoiceDetailPageContent() {
 
   async function handleUpdateStatus(newStatus: string) {
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/status`, {
+      const res = await authFetch(`/invoices/${invoiceId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -1042,7 +1041,7 @@ function InvoiceDetailPageContent() {
   const handleGetPdf = async () => {
     setIsGeneratingPdf(true);
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/pdf`);
+      const res = await authFetch(`/invoices/${invoiceId}/pdf`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

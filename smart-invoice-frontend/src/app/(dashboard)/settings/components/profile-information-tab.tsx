@@ -5,8 +5,7 @@ import { Pencil, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Organization } from "@/lib/types/organization";
 import { EditProfileForm } from "./edit-profile-form";
-
-const API_BASE = "http://localhost:8000";
+import { authFetch } from "@/lib/api/authFetch";
 
 export function ProfileInformationTab() {
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -16,7 +15,7 @@ export function ProfileInformationTab() {
   useEffect(() => {
     async function fetchOrganization() {
       try {
-        const res = await fetch(`${API_BASE}/organization/`);
+        const res = await authFetch(`/organization/`);
         if (res.status === 404) {
           setOrganization(null);
           return;

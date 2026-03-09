@@ -16,8 +16,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-
-const API_BASE = "http://localhost:8000";
+import { authFetch } from "@/lib/api/authFetch";
 
 export default function NewClientPage() {
   const router = useRouter();
@@ -40,7 +39,7 @@ export default function NewClientPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/clients/`, {
+      const res = await authFetch(`/clients/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

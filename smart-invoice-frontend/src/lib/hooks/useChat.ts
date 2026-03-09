@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
-
-const API_BASE = "http://localhost:8000/api/chat";
+import { authFetch } from "@/lib/api/authFetch";
 
 export function useChat() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -21,7 +20,7 @@ export function useChat() {
         setIsGenerating(true);
 
         try {
-            const response = await fetch(`${API_BASE}/`, {
+            const response = await authFetch(`/api/chat/`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -82,7 +81,7 @@ export function useChat() {
         ]);
 
         try {
-            const response = await fetch(`${API_BASE}/stream`, {
+            const response = await authFetch(`/api/chat/stream`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

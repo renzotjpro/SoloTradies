@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Sparkles, ArrowUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { authFetch } from "@/lib/api/authFetch";
 
 type PromptInputProps = {
     onSubmit: (prompt: string) => void;
@@ -20,7 +21,7 @@ export function PromptInput({ onSubmit, disabled, variant = "home" }: PromptInpu
         if (!prompt.trim() || disabled || isImproving) return;
         setIsImproving(true);
         try {
-            const response = await fetch("http://localhost:8000/api/chat/improve-prompt", {
+            const response = await authFetch("/api/chat/improve-prompt", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ prompt: prompt.trim() }),

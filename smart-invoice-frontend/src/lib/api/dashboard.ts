@@ -1,4 +1,6 @@
-const BASE = "http://localhost:8000/api/v1/dashboard";
+import { authFetch } from "@/lib/api/authFetch";
+
+const BASE = "/api/v1/dashboard";
 
 export interface OverviewStats {
   total_invoices: number;
@@ -18,19 +20,19 @@ export interface InvoiceStatusDataPoint {
 }
 
 export async function fetchOverviewStats(): Promise<OverviewStats> {
-  const res = await fetch(`${BASE}/overview`);
+  const res = await authFetch(`${BASE}/overview`);
   if (!res.ok) throw new Error("Failed to fetch overview stats");
   return res.json();
 }
 
 export async function fetchCashflow(): Promise<CashflowDataPoint[]> {
-  const res = await fetch(`${BASE}/cashflow`);
+  const res = await authFetch(`${BASE}/cashflow`);
   if (!res.ok) throw new Error("Failed to fetch cashflow data");
   return res.json();
 }
 
 export async function fetchInvoiceStats(): Promise<InvoiceStatusDataPoint[]> {
-  const res = await fetch(`${BASE}/invoice-stats`);
+  const res = await authFetch(`${BASE}/invoice-stats`);
   if (!res.ok) throw new Error("Failed to fetch invoice stats");
   return res.json();
 }

@@ -16,8 +16,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-
-const API_BASE = "http://localhost:8000";
+import { authFetch } from "@/lib/api/authFetch";
 
 export default function EditClientPage() {
   const router = useRouter();
@@ -40,7 +39,7 @@ export default function EditClientPage() {
   useEffect(() => {
     async function fetchClient() {
       try {
-        const res = await fetch(`${API_BASE}/clients/${clientId}`);
+        const res = await authFetch(`/clients/${clientId}`);
         if (!res.ok) throw new Error("Client not found");
         const data = await res.json();
         setCompany(data.company || "");
@@ -67,7 +66,7 @@ export default function EditClientPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/clients/${clientId}`, {
+      const res = await authFetch(`/clients/${clientId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,7 +94,7 @@ export default function EditClientPage() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/clients/${clientId}`, {
+      const res = await authFetch(`/clients/${clientId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete client");

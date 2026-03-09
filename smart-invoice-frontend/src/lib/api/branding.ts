@@ -1,8 +1,10 @@
-const BASE = "http://localhost:8000/api/v1/branding";
+import { authFetch } from "@/lib/api/authFetch";
+
+const BASE = "/api/v1/branding";
 
 export interface BrandingSettings {
   id: string;
-  owner_id: number;
+  owner_id: string;
   // Brand
   logo_url: string | null;
   header_image_url: string | null;
@@ -53,7 +55,7 @@ export interface BrandingSettings {
 
 export const DEFAULT_BRANDING: BrandingSettings = {
   id: "",
-  owner_id: 1,
+  owner_id: "",
   logo_url: null,
   header_image_url: null,
   display_name: null,
@@ -99,7 +101,7 @@ export const DEFAULT_BRANDING: BrandingSettings = {
 };
 
 export async function fetchBranding(): Promise<BrandingSettings> {
-  const res = await fetch(BASE);
+  const res = await authFetch(BASE);
   if (!res.ok) throw new Error("Failed to fetch branding");
   return res.json();
 }
@@ -107,7 +109,7 @@ export async function fetchBranding(): Promise<BrandingSettings> {
 export async function saveBranding(
   data: Partial<BrandingSettings>
 ): Promise<BrandingSettings> {
-  const res = await fetch(BASE, {
+  const res = await authFetch(BASE, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -117,7 +119,7 @@ export async function saveBranding(
 }
 
 export async function saveLabel(key: string, value: string): Promise<void> {
-  const res = await fetch(`${BASE}/labels/${key}`, {
+  const res = await authFetch(`${BASE}/labels/${key}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ label_value: value }),
@@ -128,7 +130,7 @@ export async function saveLabel(key: string, value: string): Promise<void> {
 export async function saveLabelsBatch(
   labels: Record<string, string>
 ): Promise<void> {
-  const res = await fetch(`${BASE}/labels`, {
+  const res = await authFetch(`${BASE}/labels`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(labels),
@@ -137,6 +139,6 @@ export async function saveLabelsBatch(
 }
 
 export async function deleteLabel(key: string): Promise<void> {
-  const res = await fetch(`${BASE}/labels/${key}`, { method: "DELETE" });
+  const res = await authFetch(`${BASE}/labels/${key}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete label");
 }

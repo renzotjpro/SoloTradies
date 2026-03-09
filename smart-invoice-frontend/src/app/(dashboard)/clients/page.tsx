@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface Client {
   id: number;
@@ -17,8 +18,6 @@ interface Client {
   phone: string | null;
   abn: string | null;
 }
-
-const API_BASE = "http://localhost:8000";
 
 function getInitials(name: string): string {
   return name
@@ -38,7 +37,7 @@ export default function ClientsPage() {
   useEffect(() => {
     async function fetchClients() {
       try {
-        const res = await fetch(`${API_BASE}/clients/`);
+        const res = await authFetch(`/clients/`);
         if (!res.ok) throw new Error("Failed to fetch clients");
         const data = await res.json();
         setClients(data);

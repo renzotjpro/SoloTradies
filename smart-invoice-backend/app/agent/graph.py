@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage
 from pydantic import BaseModel, Field
@@ -29,6 +29,90 @@ logger = logging.getLogger(__name__)
 
 def _today() -> str:
     return date.today().isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Intent classification schema
+# ---------------------------------------------------------------------------
+
+class IntentClassification(BaseModel):
+    """Classifies whether the user's message is casual conversation or invoice-related."""
+    intent: Literal["conversation", "invoice"] = Field(
+        description=(
+            "Set to 'conversation' for greetings, small talk, or general questions "
+            "about the app. Set to 'invoice' for anything related to creating invoices, "
+            "mentioning clients, amounts, services, or billing."
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# NODE 0: classify_intent
+# Determines if the user's message is conversational or invoice-related.
+# ---------------------------------------------------------------------------
+
+def classify_intent(state: AgentState):
+    """Classify the user's latest message as conversation or invoice-related."""
+    messages = state["messages"]
+
+    try:
+        llm = get_llm()
+        structured_llm = llm.with_structured_output(IntentClassification)
+
+        system_prompt = (
+            "You are a message classifier for an invoicing app. "
+            "Classify the user's LATEST message.\n\n"
+            "Return 'conversation' for: greetings, small talk, thanks, "
+            "questions about the app, or anything NOT about creating an invoice.\n\n"
+            "Return 'invoice' for: mentions of clients, amounts, services, "
+            "billing, line items, dates of service, or any intent to create/modify an invoice."
+        )
+
+        result: IntentClassification = structured_llm.invoke(
+            [SystemMessage(content=system_prompt)] + messages
+        )
+        return {"intent": result.intent}
+
+    except Exception as e:
+        logger.error(f"classify_intent failed: {e}")
+        # Default to invoice flow on error so we don't break existing behavior
+        return {"intent": "invoice"}
+
+
+# ---------------------------------------------------------------------------
+# NODE 0b: handle_conversation
+# Generates a natural response for non-invoice messages.
+# ---------------------------------------------------------------------------
+
+def handle_conversation(state: AgentState):
+    """Generate a warm, natural response for conversational messages."""
+    messages = state["messages"]
+
+    try:
+        llm = get_llm()
+
+        system_prompt = (
+            f"{SYSTEM_PROMPT}\n\n"
+            "The user is having a casual conversation (greeting, small talk, or "
+            "asking about the app). Respond warmly and naturally — like a friendly "
+            "assistant would. Keep it brief (1-2 sentences). Gently remind them "
+            "you're here to help with invoicing, but don't force it.\n\n"
+            "Examples of good responses:\n"
+            '- "Hey! Great to hear from you. Ready to create an invoice whenever you are!"\n'
+            '- "I\'m doing well, thanks! I\'m here to help you knock out invoices quickly. What can I do for you?"\n'
+            '- "G\'day! I can help you create invoices, manage clients, and more. What do you need?"'
+        )
+
+        response = llm.invoke(
+            [SystemMessage(content=system_prompt)] + messages
+        )
+        return {"messages": [AIMessage(content=response.content)]}
+
+    except Exception as e:
+        logger.error(f"handle_conversation failed: {e}")
+        return {
+            "messages": [AIMessage(content="Hey there! 👋 I'm here to help with invoicing. What can I do for you?")]
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -128,21 +212,7 @@ def check_client_db(state: AgentState):
     data: Optional[InvoiceData] = state.get("extracted_data")
 
     if not data or not data.client_name:
-        # Detect if the user's last message is a simple greeting
-        messages = state.get("messages", [])
-        last_human = next(
-            (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
-        )
-        greeting_words = {"hi", "hello", "hey", "hiya", "howdy", "g'day", "gday", "sup", "yo"}
-        is_greeting = (
-            last_human
-            and last_human.content.strip().lower().rstrip("!,.?") in greeting_words
-        )
-
-        if is_greeting:
-            msg = AIMessage(content="Hey there! 👋 Ready to knock out an invoice? Who are we billing today?")
-        else:
-            msg = AIMessage(content="To get started, could you tell me which client you'd like to invoice?")
+        msg = AIMessage(content="To get started, could you tell me which client you'd like to invoice?")
         return {"messages": [msg], "client_status": None}
 
     # If we already resolved the client in a previous turn, skip the DB call
@@ -150,7 +220,7 @@ def check_client_db(state: AgentState):
         return {}
 
     try:
-        owner_id = 1  # MVP: no auth yet
+        owner_id = state.get("owner_id", "")
         sb = get_supabase()
         result = (
             sb.table("clients")
@@ -505,7 +575,7 @@ def generate_invoice(state: AgentState):
     the invoice in Supabase.
     """
     data: InvoiceData = state["extracted_data"]
-    owner_id = 1  # MVP: no auth yet
+    owner_id = state.get("owner_id", "")
     creation_preference = state.get("creation_preference")
 
     total = sum(item.amount for item in data.items if item.amount) if data.items else 0
@@ -700,6 +770,17 @@ def route_after_confirmation(state: AgentState):
     return END
 
 
+def route_after_intent(state: AgentState):
+    """
+    After classify_intent:
+    - conversation → handle_conversation (natural response)
+    - invoice      → extract_basics (existing invoice flow)
+    """
+    if state.get("intent") == "conversation":
+        return "handle_conversation"
+    return "extract_basics"
+
+
 # ---------------------------------------------------------------------------
 # BUILD THE GRAPH
 # ---------------------------------------------------------------------------
@@ -707,6 +788,8 @@ def route_after_confirmation(state: AgentState):
 workflow = StateGraph(AgentState)
 
 # Nodes
+workflow.add_node("classify_intent", classify_intent)
+workflow.add_node("handle_conversation", handle_conversation)
 workflow.add_node("extract_basics", extract_basics)
 workflow.add_node("check_client_db", check_client_db)
 workflow.add_node("ask_creation_preference", ask_creation_preference)
@@ -717,8 +800,10 @@ workflow.add_node("validate_quick_invoice", validate_quick_invoice)
 workflow.add_node("confirm_invoice", confirm_invoice)
 workflow.add_node("generate_invoice", generate_invoice)
 
-# Entry
-workflow.add_edge(START, "extract_basics")
+# Entry — classify intent first, then route
+workflow.add_edge(START, "classify_intent")
+workflow.add_conditional_edges("classify_intent", route_after_intent)
+workflow.add_edge("handle_conversation", END)
 workflow.add_edge("extract_basics", "check_client_db")
 
 # DB check → branch on client_status

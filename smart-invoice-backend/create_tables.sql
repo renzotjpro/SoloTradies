@@ -25,7 +25,7 @@ CREATE TABLE clients (
 	abn VARCHAR, 
 	role VARCHAR, 
 	notes VARCHAR, 
-	owner_id INTEGER, 
+	owner_id TEXT,
 	created_at TIMESTAMP WITHOUT TIME ZONE, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE, 
 	PRIMARY KEY (id)
@@ -91,7 +91,7 @@ CREATE TABLE expenses (
 	receipt_url VARCHAR, 
 	client_id INTEGER, 
 	invoice_id INTEGER, 
-	owner_id INTEGER NOT NULL, 
+	owner_id TEXT NOT NULL,
 	created_at TIMESTAMP WITHOUT TIME ZONE, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE, 
 	PRIMARY KEY (id),
@@ -104,7 +104,7 @@ CREATE INDEX ix_expenses_id ON expenses (id)
 
 create table organizations (
   id            bigint primary key generated always as identity,
-  owner_id      integer not null unique,
+  owner_id      text not null unique,
   name          text not null,
   abn           text,
   industry      text,
@@ -123,7 +123,7 @@ create table organizations (
 
 create table invoice_branding_settings (
   id                        uuid primary key default gen_random_uuid(),
-  owner_id                  integer not null unique,
+  owner_id                  text not null unique,
 
   -- Brand
   logo_url                  text,
@@ -178,7 +178,7 @@ create table invoice_branding_settings (
 
 create table invoice_custom_labels (
   id          uuid primary key default gen_random_uuid(),
-  owner_id    integer not null,
+  owner_id    text not null,
   label_key   text not null,
   label_value text not null,
   created_at  timestamptz not null default now(),
@@ -186,3 +186,58 @@ create table invoice_custom_labels (
 
   constraint unique_user_label unique (owner_id, label_key)
 );
+
+-- ─── Migration: owner_id INTEGER → TEXT (run on existing databases) ────────
+-- ALTER TABLE clients ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE invoices ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE expenses ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE organizations ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE invoice_branding_settings ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE invoice_custom_labels ALTER COLUMN owner_id TYPE text USING owner_id::text;
+
+-- ─── Auth: Profiles ─────────────────────────────────────────────────────────
+
+create table public.profiles (
+  id                 uuid primary key references auth.users(id) on delete cascade,
+  full_name          text,
+  business_name      text,
+  abn                text,
+  role               text not null default 'tradie',
+  instagram_username text,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (auth.uid() = id);
+
+-- Auto-create profile on new user signup (reads fields from metadata)
+-- COALESCE handles Google OAuth which uses 'name' instead of 'full_name'
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, full_name, business_name, abn)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'),
+    new.raw_user_meta_data ->> 'business_name',
+    new.raw_user_meta_data ->> 'abn'
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

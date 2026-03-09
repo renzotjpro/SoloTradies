@@ -27,7 +27,7 @@ def create_user(sb: Client, user: schemas.UserCreate):
     return result.data[0]
 
 # --- Client CRUD ---
-def get_clients(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
+def get_clients(sb: Client, owner_id: str, skip: int = 0, limit: int = 100):
     result = (
         sb.table("clients")
         .select("*")
@@ -37,7 +37,7 @@ def get_clients(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
     )
     return result.data
 
-def get_client(sb: Client, client_id: int, owner_id: int):
+def get_client(sb: Client, client_id: int, owner_id: str):
     result = (
         sb.table("clients")
         .select("*")
@@ -47,13 +47,13 @@ def get_client(sb: Client, client_id: int, owner_id: int):
     )
     return result.data[0] if result.data else None
 
-def create_client(sb: Client, client: schemas.ClientCreate, owner_id: int):
+def create_client(sb: Client, client: schemas.ClientCreate, owner_id: str):
     now = datetime.now(timezone.utc).isoformat()
     data = {**client.model_dump(), "owner_id": owner_id, "created_at": now, "updated_at": now}
     result = sb.table("clients").insert(data).execute()
     return result.data[0]
 
-def update_client(sb: Client, client_id: int, client_data: schemas.ClientUpdate, owner_id: int):
+def update_client(sb: Client, client_id: int, client_data: schemas.ClientUpdate, owner_id: str):
     existing = get_client(sb, client_id, owner_id)
     if not existing:
         return None
@@ -68,7 +68,7 @@ def update_client(sb: Client, client_id: int, client_data: schemas.ClientUpdate,
     )
     return result.data[0] if result.data else None
 
-def delete_client(sb: Client, client_id: int, owner_id: int):
+def delete_client(sb: Client, client_id: int, owner_id: str):
     existing = get_client(sb, client_id, owner_id)
     if not existing:
         return False
@@ -76,7 +76,7 @@ def delete_client(sb: Client, client_id: int, owner_id: int):
     return True
 
 # --- Invoice CRUD ---
-def get_invoices(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
+def get_invoices(sb: Client, owner_id: str, skip: int = 0, limit: int = 100):
     result = (
         sb.table("invoices")
         .select("*, invoice_items(*), clients(*)")
@@ -91,7 +91,7 @@ def get_invoices(sb: Client, owner_id: int, skip: int = 0, limit: int = 100):
         invoices.append(row)
     return invoices
 
-def get_invoice(sb: Client, invoice_id: int, owner_id: int):
+def get_invoice(sb: Client, invoice_id: int, owner_id: str):
     result = (
         sb.table("invoices")
         .select("*, invoice_items(*), clients(*)")
@@ -106,7 +106,7 @@ def get_invoice(sb: Client, invoice_id: int, owner_id: int):
     row["client"] = row.pop("clients", None)
     return row
 
-def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
+def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: str):
     # Compute line item amounts
     items_data = []
     subtotal = 0
@@ -161,7 +161,7 @@ def create_invoice(sb: Client, invoice: schemas.InvoiceCreate, owner_id: int):
 
     return new_invoice
 
-def update_invoice(sb: Client, invoice_id: int, invoice_data: schemas.InvoiceUpdate, owner_id: int):
+def update_invoice(sb: Client, invoice_id: int, invoice_data: schemas.InvoiceUpdate, owner_id: str):
     existing = get_invoice(sb, invoice_id, owner_id)
     if not existing:
         return None
@@ -216,7 +216,7 @@ def update_invoice(sb: Client, invoice_id: int, invoice_data: schemas.InvoiceUpd
     sb.table("invoices").update(update_fields).eq("id", invoice_id).eq("owner_id", owner_id).execute()
     return get_invoice(sb, invoice_id, owner_id)
 
-def update_invoice_status(sb: Client, invoice_id: int, status: str, owner_id: int):
+def update_invoice_status(sb: Client, invoice_id: int, status: str, owner_id: str):
     existing = get_invoice(sb, invoice_id, owner_id)
     if not existing:
         return None
@@ -232,7 +232,7 @@ def update_invoice_status(sb: Client, invoice_id: int, status: str, owner_id: in
         return None
     return get_invoice(sb, invoice_id, owner_id)
 
-def delete_invoice(sb: Client, invoice_id: int, owner_id: int):
+def delete_invoice(sb: Client, invoice_id: int, owner_id: str):
     existing = get_invoice(sb, invoice_id, owner_id)
     if not existing:
         return False
@@ -241,7 +241,7 @@ def delete_invoice(sb: Client, invoice_id: int, owner_id: int):
     return True
 
 # --- Expense CRUD ---
-def get_expenses(sb: Client, owner_id: int, skip: int = 0, limit: int = 100,
+def get_expenses(sb: Client, owner_id: str, skip: int = 0, limit: int = 100,
                  category: str = None, client_id: int = None, invoice_id: int = None):
     query = sb.table("expenses").select("*").eq("owner_id", owner_id)
     if category:
@@ -253,7 +253,7 @@ def get_expenses(sb: Client, owner_id: int, skip: int = 0, limit: int = 100,
     result = query.range(skip, skip + limit - 1).execute()
     return result.data
 
-def get_expense(sb: Client, expense_id: int, owner_id: int):
+def get_expense(sb: Client, expense_id: int, owner_id: str):
     result = (
         sb.table("expenses")
         .select("*")
@@ -263,7 +263,7 @@ def get_expense(sb: Client, expense_id: int, owner_id: int):
     )
     return result.data[0] if result.data else None
 
-def create_expense(sb: Client, expense: schemas.ExpenseCreate, owner_id: int):
+def create_expense(sb: Client, expense: schemas.ExpenseCreate, owner_id: str):
     # Auto-calculate GST: in Australia, GST is 1/11 of the total price
     gst_included = round(expense.amount / 11, 2)
     now = datetime.now(timezone.utc).isoformat()
@@ -283,7 +283,7 @@ def create_expense(sb: Client, expense: schemas.ExpenseCreate, owner_id: int):
     result = sb.table("expenses").insert(data).execute()
     return result.data[0]
 
-def update_expense(sb: Client, expense_id: int, expense_data: schemas.ExpenseUpdate, owner_id: int):
+def update_expense(sb: Client, expense_id: int, expense_data: schemas.ExpenseUpdate, owner_id: str):
     existing = get_expense(sb, expense_id, owner_id)
     if not existing:
         return None
@@ -304,7 +304,7 @@ def update_expense(sb: Client, expense_id: int, expense_data: schemas.ExpenseUpd
     )
     return result.data[0] if result.data else None
 
-def delete_expense(sb: Client, expense_id: int, owner_id: int):
+def delete_expense(sb: Client, expense_id: int, owner_id: str):
     existing = get_expense(sb, expense_id, owner_id)
     if not existing:
         return False
@@ -312,7 +312,7 @@ def delete_expense(sb: Client, expense_id: int, owner_id: int):
     return True
 
 # --- Dashboard Stats ---
-def get_overview_stats(sb: Client, owner_id: int) -> schemas.OverviewStats:
+def get_overview_stats(sb: Client, owner_id: str) -> schemas.OverviewStats:
     from datetime import date
     today = date.today()
     first_of_month = today.replace(day=1).isoformat()
@@ -360,7 +360,7 @@ def get_overview_stats(sb: Client, owner_id: int) -> schemas.OverviewStats:
     )
 
 
-def get_cashflow_summary(sb: Client, owner_id: int, months_back: int = 6) -> list:
+def get_cashflow_summary(sb: Client, owner_id: str, months_back: int = 6) -> list:
     from datetime import date
     from collections import defaultdict
 
@@ -405,7 +405,7 @@ def get_cashflow_summary(sb: Client, owner_id: int, months_back: int = 6) -> lis
     ]
 
 
-def get_invoice_status_summary(sb: Client, owner_id: int) -> list:
+def get_invoice_status_summary(sb: Client, owner_id: str) -> list:
     result = (
         sb.table("invoices")
         .select("status, total_amount")
@@ -425,7 +425,7 @@ def get_invoice_status_summary(sb: Client, owner_id: int) -> list:
     ]
 
 
-def get_dashboard_stats(sb: Client, owner_id: int) -> schemas.DashboardStats:
+def get_dashboard_stats(sb: Client, owner_id: str) -> schemas.DashboardStats:
     # Revenue and GST from paid invoices
     paid = (
         sb.table("invoices")
@@ -466,7 +466,7 @@ def get_dashboard_stats(sb: Client, owner_id: int) -> schemas.DashboardStats:
     )
 
 # --- Organization CRUD ---
-def get_organization(sb: Client, owner_id: int):
+def get_organization(sb: Client, owner_id: str):
     result = (
         sb.table("organizations")
         .select("*")
@@ -475,13 +475,13 @@ def get_organization(sb: Client, owner_id: int):
     )
     return result.data[0] if result.data else None
 
-def create_organization(sb: Client, org: schemas.OrganizationCreate, owner_id: int):
+def create_organization(sb: Client, org: schemas.OrganizationCreate, owner_id: str):
     now = datetime.now(timezone.utc).isoformat()
     data = {**org.model_dump(), "owner_id": owner_id, "created_at": now, "updated_at": now}
     result = sb.table("organizations").insert(data).execute()
     return result.data[0]
 
-def update_organization(sb: Client, org_data: schemas.OrganizationUpdate, owner_id: int):
+def update_organization(sb: Client, org_data: schemas.OrganizationUpdate, owner_id: str):
     existing = get_organization(sb, owner_id)
     if not existing:
         return None
@@ -496,7 +496,7 @@ def update_organization(sb: Client, org_data: schemas.OrganizationUpdate, owner_
     return result.data[0] if result.data else None
 
 # --- Branding CRUD ---
-def get_branding(sb: Client, owner_id: int):
+def get_branding(sb: Client, owner_id: str):
     result = (
         sb.table("invoice_branding_settings")
         .select("*")
@@ -505,7 +505,7 @@ def get_branding(sb: Client, owner_id: int):
     )
     return result.data[0] if result.data else None
 
-def upsert_branding(sb: Client, branding_data: schemas.BrandingSettingsUpdate, owner_id: int):
+def upsert_branding(sb: Client, branding_data: schemas.BrandingSettingsUpdate, owner_id: str):
     now = datetime.now(timezone.utc).isoformat()
     existing = get_branding(sb, owner_id)
     update_fields = {**branding_data.model_dump(exclude_unset=True), "updated_at": now}
@@ -524,7 +524,7 @@ def upsert_branding(sb: Client, branding_data: schemas.BrandingSettingsUpdate, o
 
     return result.data[0] if result.data else None
 
-def get_labels(sb: Client, owner_id: int) -> dict:
+def get_labels(sb: Client, owner_id: str) -> dict:
     result = (
         sb.table("invoice_custom_labels")
         .select("label_key, label_value")
@@ -533,7 +533,7 @@ def get_labels(sb: Client, owner_id: int) -> dict:
     )
     return {row["label_key"]: row["label_value"] for row in result.data}
 
-def upsert_label(sb: Client, label_key: str, label_value: str, owner_id: int):
+def upsert_label(sb: Client, label_key: str, label_value: str, owner_id: str):
     now = datetime.now(timezone.utc).isoformat()
     existing = (
         sb.table("invoice_custom_labels")
@@ -558,13 +558,13 @@ def upsert_label(sb: Client, label_key: str, label_value: str, owner_id: int):
         )
     return result.data[0] if result.data else None
 
-def upsert_labels_batch(sb: Client, labels: dict, owner_id: int):
+def upsert_labels_batch(sb: Client, labels: dict, owner_id: str):
     """Upsert multiple labels at once. labels is a dict of {label_key: label_value}."""
     for key, value in labels.items():
         upsert_label(sb, key, value, owner_id)
     return get_labels(sb, owner_id)
 
-def delete_label(sb: Client, label_key: str, owner_id: int) -> bool:
+def delete_label(sb: Client, label_key: str, owner_id: str) -> bool:
     result = (
         sb.table("invoice_custom_labels")
         .delete()
@@ -574,7 +574,7 @@ def delete_label(sb: Client, label_key: str, owner_id: int) -> bool:
     )
     return len(result.data) > 0
 
-def get_branding_with_labels(sb: Client, owner_id: int):
+def get_branding_with_labels(sb: Client, owner_id: str):
     branding = get_branding(sb, owner_id)
     labels = get_labels(sb, owner_id)
     if branding is None:

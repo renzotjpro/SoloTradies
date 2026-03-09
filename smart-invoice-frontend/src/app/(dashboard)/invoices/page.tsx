@@ -36,8 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const API_BASE = "http://localhost:8000";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface InvoiceClient {
   id: number;
@@ -110,7 +109,7 @@ export default function InvoicesPage() {
   useEffect(() => {
     async function fetchInvoices() {
       try {
-        const res = await fetch(`${API_BASE}/invoices/`);
+        const res = await authFetch(`/invoices/`);
         if (!res.ok) throw new Error("Failed to fetch invoices");
         const data = await res.json();
         setInvoices(data);
@@ -165,7 +164,7 @@ export default function InvoicesPage() {
       prev.map((inv) => (inv.id === invoiceId ? { ...inv, status: newStatus } : inv))
     );
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}/status`, {
+      const res = await authFetch(`/invoices/${invoiceId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -173,7 +172,7 @@ export default function InvoicesPage() {
       if (!res.ok) throw new Error("Failed to update status");
     } catch {
       // Revert on failure — refetch
-      const res = await fetch(`${API_BASE}/invoices/`);
+      const res = await authFetch(`/invoices/`);
       if (res.ok) setInvoices(await res.json());
     } finally {
       setUpdatingId(null);
@@ -183,7 +182,7 @@ export default function InvoicesPage() {
   async function handleDelete(invoiceId: number) {
     if (!confirm("Are you sure you want to delete this invoice?")) return;
     try {
-      const res = await fetch(`${API_BASE}/invoices/${invoiceId}`, {
+      const res = await authFetch(`/invoices/${invoiceId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete invoice");

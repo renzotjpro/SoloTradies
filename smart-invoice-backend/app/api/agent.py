@@ -3,7 +3,7 @@ import json
 import logging
 import re
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
@@ -13,6 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.agent.state import AgentState, InvoiceData, SYSTEM_PROMPT
 from app.agent.graph import app as workflow_app
 from app.agent.llm import get_llm
+from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +86,15 @@ def _extract_choices(text: str) -> tuple[str, Optional[list[str]]]:
 
 
 def _format_structured_data(extracted: InvoiceData | None) -> dict | None:
-    """Transform backend InvoiceData into the flat shape the frontend expects."""
+    """Transform backend InvoiceData into the flat shape the frontend expects.
+    Returns None when there's no meaningful invoice data to display."""
     if not extracted:
         return None
+    # Don't show the draft card if we have no client and no items
     items = extracted.items or []
+    has_items = any(i.description or i.amount for i in items)
+    if not extracted.client_name and not has_items:
+        return None
     service = ", ".join(i.description for i in items if i.description) or None
     total = sum(i.amount for i in items if i.amount)
     return {
@@ -112,7 +118,7 @@ class ImprovePromptResponse(BaseModel):
     improved_prompt: str
 
 @router.post("/")
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(request: ChatRequest, owner_id: str = Depends(get_current_user)):
     # Convert incoming dicts to LangChain message objects
     langchain_messages = []
     for msg in request.messages:
@@ -120,7 +126,7 @@ async def chat_endpoint(request: ChatRequest):
             langchain_messages.append(HumanMessage(content=msg.content))
         elif msg.role == "assistant":
             langchain_messages.append(AIMessage(content=msg.content))
-            
+
     # Recover state fields from message history (they are lost between API turns)
     recovered = _recover_state(langchain_messages)
 
@@ -135,6 +141,7 @@ async def chat_endpoint(request: ChatRequest):
 
     initial_state = AgentState(
         messages=langchain_messages,
+        owner_id=owner_id,
         extracted_data=None,
         client_status=recovered["client_status"],
         resolved_client_id=None,
@@ -181,7 +188,7 @@ def _build_langchain_messages(messages: List[ChatMessage]):
 
 
 @router.post("/stream")
-async def chat_stream_endpoint(request: ChatRequest):
+async def chat_stream_endpoint(request: ChatRequest, owner_id: str = Depends(get_current_user)):
     """SSE streaming endpoint — streams the AI reply token-by-token."""
     langchain_messages = _build_langchain_messages(request.messages)
 
@@ -208,6 +215,7 @@ async def chat_stream_endpoint(request: ChatRequest):
 
     initial_state = AgentState(
         messages=langchain_messages,
+        owner_id=owner_id,
         extracted_data=None,
         client_status=recovered["client_status"],
         resolved_client_id=None,

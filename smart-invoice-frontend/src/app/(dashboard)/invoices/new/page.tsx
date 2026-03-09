@@ -52,8 +52,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { BrandingProvider, useBranding } from "@/lib/context/BrandingContext";
-import { InvoicePreview } from "@/app/settings/branding/components/InvoicePreview";
+import { InvoicePreview } from "@/app/(dashboard)/settings/branding/components/InvoicePreview";
 import { fetchBranding } from "@/lib/api/branding";
+import { authFetch } from "@/lib/api/authFetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -353,7 +354,7 @@ function NewInvoicePageContent() {
   useEffect(() => {
     async function loadClients() {
       try {
-        const res = await fetch("http://localhost:8000/clients/");
+        const res = await authFetch("/clients/");
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setClients(data);
@@ -478,7 +479,7 @@ function NewInvoicePageContent() {
       }));
 
     try {
-      const res = await fetch("http://localhost:8000/invoices/", {
+      const res = await authFetch("/invoices/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

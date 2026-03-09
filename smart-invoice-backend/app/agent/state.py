@@ -130,6 +130,12 @@ class AgentState(TypedDict):
     # The list of messages in the conversation
     messages: Annotated[List[AnyMessage], add_messages]
 
+    # Authenticated user ID (Supabase UUID)
+    owner_id: Optional[str]
+
+    # Intent classification: "conversation" | "invoice"
+    intent: Optional[str]
+
     # Core extracted invoice data (populated progressively through the flow)
     extracted_data: Optional[InvoiceData]
 

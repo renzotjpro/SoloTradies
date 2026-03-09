@@ -12,8 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import type { Organization } from "@/lib/types/organization";
 import { IndustryCombobox } from "./industry-combobox";
-
-const API_BASE = "http://localhost:8000";
+import { authFetch } from "@/lib/api/authFetch";
 
 const organizationSchema = z.object({
   name: z.string().min(1, "Organization name is required"),
@@ -72,7 +71,7 @@ export function EditProfileForm({ organization, onSaved, onCancel }: Props) {
 
     try {
       const isNew = organization === null;
-      const res = await fetch(`${API_BASE}/organization/`, {
+      const res = await authFetch(`/organization/`, {
         method: isNew ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
