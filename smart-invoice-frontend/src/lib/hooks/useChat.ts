@@ -3,10 +3,22 @@
 import { useState, useCallback } from "react";
 import type { ChatMessage } from "@/lib/types/chat";
 import { authFetch } from "@/lib/api/authFetch";
+import { getConversation } from "@/lib/api/conversations";
 
 export function useChat() {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [conversationId, setConversationId] = useState<string | null>(null);
+
+    const loadConversation = useCallback(async (id: string) => {
+        try {
+            const { messages: loadedMessages } = await getConversation(id);
+            setMessages(loadedMessages);
+            setConversationId(id);
+        } catch (error) {
+            console.error("Failed to load conversation:", error);
+        }
+    }, []);
 
     const sendMessage = useCallback(async (content: string) => {
         const userMsg: ChatMessage = {
@@ -28,6 +40,7 @@ export function useChat() {
                         role: m.role,
                         content: m.content,
                     })),
+                    conversation_id: conversationId,
                 }),
             });
 
@@ -36,6 +49,11 @@ export function useChat() {
             }
 
             const data = await response.json();
+
+            // Track conversation ID from backend
+            if (data.conversationId) {
+                setConversationId(data.conversationId);
+            }
 
             const aiMsg: ChatMessage = {
                 id: crypto.randomUUID(),
@@ -61,7 +79,7 @@ export function useChat() {
         } finally {
             setIsGenerating(false);
         }
-    }, [messages]);
+    }, [messages, conversationId]);
 
     const sendMessageStreaming = useCallback(async (content: string) => {
         const userMsg: ChatMessage = {
@@ -89,6 +107,7 @@ export function useChat() {
                         role: m.role,
                         content: m.content,
                     })),
+                    conversation_id: conversationId,
                 }),
             });
 
@@ -121,7 +140,6 @@ export function useChat() {
                             )
                         );
                     } else if (payload.type === "choices") {
-                        // Store quick-reply button labels on the message
                         setMessages((prev) =>
                             prev.map((m) =>
                                 m.id === assistantId
@@ -138,6 +156,10 @@ export function useChat() {
                             )
                         );
                     } else if (payload.type === "done") {
+                        // Capture conversationId from backend
+                        if (payload.conversationId) {
+                            setConversationId(payload.conversationId);
+                        }
                         setMessages((prev) =>
                             prev.map((m) =>
                                 m.id === assistantId
@@ -153,14 +175,13 @@ export function useChat() {
             // Fallback: try non-streaming
             setMessages((prev) => prev.filter((m) => m.id !== assistantId));
             setIsGenerating(false);
-            // Remove the user message we already added, then use non-streaming
             setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
             await sendMessage(content);
             return;
         } finally {
             setIsGenerating(false);
         }
-    }, [messages, sendMessage]);
+    }, [messages, conversationId, sendMessage]);
 
     /**
      * Called when the user taps a quick-reply chip.
@@ -168,9 +189,7 @@ export function useChat() {
      * and sends the choice text as a new user message.
      */
     const onQuickReply = useCallback((messageId: string, choice: string) => {
-        // Strip the leading "1. " / "2. " prefix so the backend sees just "1" or "2"
         const text = choice.match(/^(\d+)\./)?.[1] ?? choice;
-        // Clear choices from the message that triggered them
         setMessages((prev) =>
             prev.map((m) => (m.id === messageId ? { ...m, choices: undefined } : m))
         );
@@ -180,7 +199,17 @@ export function useChat() {
     const resetChat = useCallback(() => {
         setMessages([]);
         setIsGenerating(false);
+        setConversationId(null);
     }, []);
 
-    return { messages, isGenerating, sendMessage, sendMessageStreaming, onQuickReply, resetChat };
+    return {
+        messages,
+        isGenerating,
+        conversationId,
+        sendMessage,
+        sendMessageStreaming,
+        onQuickReply,
+        resetChat,
+        loadConversation,
+    };
 }

@@ -241,3 +241,56 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ─── Persistent Memory: Conversations ─────────────────────────────────────────
+
+CREATE TABLE conversations (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id    TEXT NOT NULL,
+  title       TEXT,
+  summary     TEXT,
+  agent_state JSONB,
+  is_archived BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_conversations_owner ON conversations (owner_id, updated_at DESC);
+
+-- ─── Persistent Memory: Conversation Messages ────────────────────────────────
+
+CREATE TABLE conversation_messages (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content         TEXT NOT NULL,
+  metadata        JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_messages_conversation ON conversation_messages (conversation_id, created_at ASC);
+
+-- ─── Persistent Memory: User Memories (Vector-Ready) ─────────────────────────
+-- The 'embedding' column is nullable and unused now.
+-- When pgvector is enabled later, populate it and add an ivfflat/hnsw index.
+-- The MemoryProvider abstraction handles the swap with zero code changes elsewhere.
+
+CREATE TABLE user_memories (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id    TEXT NOT NULL,
+  category    TEXT NOT NULL CHECK (category IN ('client_pricing', 'preference', 'behavioral')),
+  subject     TEXT,
+  key         TEXT NOT NULL,
+  value       TEXT NOT NULL,
+  source      TEXT NOT NULL DEFAULT 'agent',
+  confidence  FLOAT NOT NULL DEFAULT 1.0,
+  -- embedding VECTOR(1536),  -- Uncomment after enabling pgvector extension
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT unique_owner_memory UNIQUE (owner_id, category, subject, key)
+);
+
+CREATE INDEX idx_memories_owner ON user_memories (owner_id, category);
+CREATE INDEX idx_memories_subject ON user_memories (owner_id, subject);
+-- Future: CREATE INDEX idx_memories_embedding ON user_memories USING ivfflat (embedding vector_cosine_ops);

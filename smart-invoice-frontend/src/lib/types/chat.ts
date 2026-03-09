@@ -14,3 +14,12 @@ export type ChatMessage = {
 };
 
 export type ChatView = "home" | "active";
+
+export type Conversation = {
+  id: string;
+  title: string | null;
+  summary: string | null;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+};

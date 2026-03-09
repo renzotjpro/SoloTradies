@@ -19,8 +19,23 @@ from app.agent.llm import get_llm
 from app.database import get_supabase
 from app.schemas import schemas
 from app.crud import crud
+from app.memory import MemoryProvider
 
 logger = logging.getLogger(__name__)
+
+
+def _get_memory_context(owner_id: str, query: str = None) -> str:
+    """Get formatted memory context for system prompt injection.
+    Returns empty string if no memories or on error."""
+    if not owner_id:
+        return ""
+    try:
+        sb = get_supabase()
+        provider = MemoryProvider(sb, owner_id)
+        return provider.get_context_block(query=query)
+    except Exception as e:
+        logger.warning(f"Failed to load memory context: {e}")
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -87,12 +102,16 @@ def classify_intent(state: AgentState):
 def handle_conversation(state: AgentState):
     """Generate a warm, natural response for conversational messages."""
     messages = state["messages"]
+    owner_id = state.get("owner_id", "")
 
     try:
         llm = get_llm()
 
+        memory_block = _get_memory_context(owner_id)
+        memory_section = f"\n\n{memory_block}" if memory_block else ""
+
         system_prompt = (
-            f"{SYSTEM_PROMPT}\n\n"
+            f"{SYSTEM_PROMPT}{memory_section}\n\n"
             "The user is having a casual conversation (greeting, small talk, or "
             "asking about the app). Respond warmly and naturally — like a friendly "
             "assistant would. Keep it brief (1-2 sentences). Gently remind them "
@@ -136,8 +155,19 @@ def extract_basics(state: AgentState):
         llm = get_llm()
         structured_llm = llm.with_structured_output(BasicExtraction)
 
+        # Inject user's stored memories (default rates, client pricing, etc.)
+        owner_id = state.get("owner_id", "")
+        # Use the last user message as query context for relevant memory retrieval
+        last_user_msg = ""
+        for m in reversed(messages):
+            if isinstance(m, HumanMessage):
+                last_user_msg = m.content
+                break
+        memory_block = _get_memory_context(owner_id, query=last_user_msg or None)
+        memory_section = f"\n\n{memory_block}" if memory_block else ""
+
         system_prompt = (
-            f"{SYSTEM_PROMPT}\n\n"
+            f"{SYSTEM_PROMPT}{memory_section}\n\n"
             f"Today's date is {today}.\n\n"
             "Your current task: Extract all available details from the conversation.\n"
             "Extract: client name, line items (description + amount), date of service, due date,\n"
@@ -684,6 +714,21 @@ def generate_invoice(state: AgentState):
 
         new_invoice = crud.create_invoice(sb, invoice_data, owner_id)
         invoice_id = new_invoice["id"]
+
+        # --- Extract and store pricing memories ---
+        try:
+            provider = MemoryProvider(sb, owner_id)
+            for item in data.items:
+                if item.description and item.unit_price:
+                    provider.store(
+                        category="client_pricing",
+                        key=item.description,
+                        value=f"${item.unit_price:,.2f}/unit" if item.quantity and item.quantity > 1 else f"${item.unit_price:,.2f}",
+                        subject=data.client_name,
+                        source="agent",
+                    )
+        except Exception as mem_err:
+            logger.warning(f"Memory extraction failed (non-critical): {mem_err}")
 
         success_msg = AIMessage(
             content=(

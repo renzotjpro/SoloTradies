@@ -581,3 +581,136 @@ def get_branding_with_labels(sb: Client, owner_id: str):
         branding = {}
     branding["labels"] = labels
     return branding
+
+# --- Conversation CRUD ---
+def create_conversation(sb: Client, owner_id: str, title: str = None):
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "owner_id": owner_id,
+        "title": title,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = sb.table("conversations").insert(data).execute()
+    return result.data[0]
+
+def get_conversations(sb: Client, owner_id: str, limit: int = 20, offset: int = 0):
+    result = (
+        sb.table("conversations")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .eq("is_archived", False)
+        .order("updated_at", desc=True)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return result.data
+
+def get_conversation(sb: Client, conversation_id: str, owner_id: str):
+    result = (
+        sb.table("conversations")
+        .select("*")
+        .eq("id", conversation_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def update_conversation(sb: Client, conversation_id: str, owner_id: str, updates: dict):
+    now = datetime.now(timezone.utc).isoformat()
+    updates["updated_at"] = now
+    result = (
+        sb.table("conversations")
+        .update(updates)
+        .eq("id", conversation_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def delete_conversation(sb: Client, conversation_id: str, owner_id: str):
+    existing = get_conversation(sb, conversation_id, owner_id)
+    if not existing:
+        return False
+    sb.table("conversations").delete().eq("id", conversation_id).eq("owner_id", owner_id).execute()
+    return True
+
+def add_message(sb: Client, conversation_id: str, role: str, content: str, metadata: dict = None):
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "conversation_id": conversation_id,
+        "role": role,
+        "content": content,
+        "metadata": metadata,
+        "created_at": now,
+    }
+    result = sb.table("conversation_messages").insert(data).execute()
+    # Touch conversation updated_at
+    sb.table("conversations").update({"updated_at": now}).eq("id", conversation_id).execute()
+    return result.data[0]
+
+def get_messages(sb: Client, conversation_id: str, limit: int = 100, offset: int = 0):
+    result = (
+        sb.table("conversation_messages")
+        .select("*")
+        .eq("conversation_id", conversation_id)
+        .order("created_at", desc=False)
+        .range(offset, offset + limit - 1)
+        .execute()
+    )
+    return result.data
+
+# --- Memory CRUD ---
+def upsert_memory(sb: Client, owner_id: str, category: str, key: str, value: str,
+                  subject: str = None, source: str = "agent"):
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "owner_id": owner_id,
+        "category": category,
+        "subject": subject,
+        "key": key,
+        "value": value,
+        "source": source,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = (
+        sb.table("user_memories")
+        .upsert(data, on_conflict="owner_id,category,subject,key")
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+def get_memories(sb: Client, owner_id: str, category: str = None, subject: str = None):
+    query = sb.table("user_memories").select("*").eq("owner_id", owner_id)
+    if category:
+        query = query.eq("category", category)
+    if subject:
+        query = query.eq("subject", subject)
+    result = query.order("updated_at", desc=True).execute()
+    return result.data
+
+def delete_memory(sb: Client, memory_id: str, owner_id: str):
+    result = (
+        sb.table("user_memories")
+        .delete()
+        .eq("id", memory_id)
+        .eq("owner_id", owner_id)
+        .execute()
+    )
+    return len(result.data) > 0
+
+def search_memories(sb: Client, owner_id: str, query_text: str, category: str = None):
+    """Text-based memory search using ILIKE.
+    Future: Replace internals with pgvector similarity search via MemoryProvider."""
+    pattern = f"%{query_text}%"
+    q = (
+        sb.table("user_memories")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .or_(f"key.ilike.{pattern},value.ilike.{pattern},subject.ilike.{pattern}")
+    )
+    if category:
+        q = q.eq("category", category)
+    result = q.order("confidence", desc=True).execute()
+    return result.data

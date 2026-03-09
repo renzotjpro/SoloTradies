@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import invoices, agent, clients, expenses, organization, branding, dashboard
+from app.api import invoices, agent, clients, expenses, organization, branding, dashboard, conversations, memories
 
 app = FastAPI(title="Smart Invoice API")
 
@@ -14,6 +14,8 @@ app.include_router(expenses.router)
 app.include_router(organization.router)
 app.include_router(branding.router)
 app.include_router(dashboard.router)
+app.include_router(conversations.router)
+app.include_router(memories.router)
 
 # Configure CORS for Next.js frontend
 app.add_middleware(

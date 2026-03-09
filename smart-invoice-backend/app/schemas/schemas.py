@@ -300,3 +300,50 @@ class CustomLabel(BaseModel):
 
 class BrandingWithLabels(BrandingSettings):
     labels: dict = {}  # label_key -> label_value map
+
+# --- Conversation Schemas ---
+class ConversationCreate(BaseModel):
+    title: Optional[str] = None
+
+class ConversationSummary(BaseModel):
+    id: str
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    is_archived: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+class MessageCreate(BaseModel):
+    role: str
+    content: str
+    metadata: Optional[dict] = None
+
+class MessageResponse(BaseModel):
+    id: str
+    role: str
+    content: str
+    metadata: Optional[dict] = None
+    created_at: datetime
+
+class ConversationDetail(ConversationSummary):
+    messages: List[MessageResponse] = []
+
+# --- Memory Schemas ---
+class MemoryCreate(BaseModel):
+    category: str  # 'client_pricing' | 'preference' | 'behavioral'
+    subject: Optional[str] = None
+    key: str
+    value: str
+
+class MemoryResponse(BaseModel):
+    id: str
+    category: str
+    subject: Optional[str] = None
+    key: str
+    value: str
+    source: str
+    confidence: float = 1.0
+    updated_at: datetime
+
+class MemoryUpdate(BaseModel):
+    value: str
