@@ -1,29 +1,49 @@
+import { BarChart3, FileLineChart } from "lucide-react";
+
 type ExamplePromptsProps = {
     onSelect: (prompt: string) => void;
 };
 
 const EXAMPLES = [
-    "Create an invoice for John Smith for plumbing work, $450",
-    "Invoice ABC Constructions for 8 hours of electrical work at $95/hour",
-    "Draft an invoice for Sarah Johnson — roof repair, $1,200, due in 30 days",
-    "Bill Sunset Homes for 3 days of painting at $280/day",
-    "Create invoice for Mike Chen, solar panel installation, $3,500",
+    {
+        title: "Analyze Invoice Trends",
+        description: "View spending patterns and identify cost-saving opportunities over time.",
+        prompt: "Analyze my recent invoices and show me spending trends per category.",
+        icon: BarChart3,
+        color: "text-emerald-500",
+        bg: "bg-emerald-50",
+    },
+    {
+        title: "Generate Quarterly Report",
+        description: "Automatically summarize all financial activities into a formatted PDF.",
+        prompt: "Generate a quarterly financial summary report for Q1 2024.",
+        icon: FileLineChart,
+        color: "text-blue-500",
+        bg: "bg-blue-50",
+    },
 ];
 
 export function ExamplePrompts({ onSelect }: ExamplePromptsProps) {
     return (
-        <div className="w-full">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Try an example
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {EXAMPLES.map((example) => (
+        <div className="w-full mt-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {EXAMPLES.map((item) => (
                     <button
-                        key={example}
-                        onClick={() => onSelect(example)}
-                        className="text-left rounded-xl border border-border bg-background hover:bg-muted hover:border-brand-300 transition-colors px-4 py-3 text-sm text-foreground leading-snug cursor-pointer w-full"
+                        key={item.title}
+                        onClick={() => onSelect(item.prompt)}
+                        className="group text-left p-6 rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-brand-200 transition-all cursor-pointer w-full flex gap-4"
                     >
-                        {example}
+                        <div className={`p-3 rounded-xl ${item.bg} ${item.color} group-hover:scale-110 transition-transform`}>
+                            <item.icon className="w-6 h-6" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <h3 className="font-semibold text-lg text-foreground group-hover:text-brand-600 transition-colors">
+                                {item.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                {item.description}
+                            </p>
+                        </div>
                     </button>
                 ))}
             </div>

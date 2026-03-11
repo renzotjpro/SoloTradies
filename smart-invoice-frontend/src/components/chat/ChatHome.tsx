@@ -11,7 +11,7 @@ type ChatHomeProps = {
 export function ChatHome({ onSubmit, onSelectConversation }: ChatHomeProps) {
     return (
         <div className="flex flex-col items-center w-full min-h-screen bg-background">
-            <div className="w-full max-w-3xl px-4 flex flex-col items-center">
+            <div className="w-full max-w-5xl px-4 flex flex-col items-center">
                 <HeaderGreeting />
 
                 <div className="w-full mb-6">
@@ -19,9 +19,9 @@ export function ChatHome({ onSubmit, onSelectConversation }: ChatHomeProps) {
                 </div>
 
                 <ExamplePrompts onSelect={onSubmit} />
-            </div>
 
-            <RecentChats onSelect={onSelectConversation} />
+                <RecentChats onSelect={onSelectConversation} />
+            </div>
         </div>
     );
 }

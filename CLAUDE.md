@@ -133,3 +133,7 @@ pip install -r requirements.txt  # Install deps
 - Subscription/billing tab exists in settings UI but has no implementation.
 - No unit/integration tests beyond pytest configuration.
 - CORS is wildcard (`*`) for development only.
+
+##Embedding Then if you have existing memories, backfill them:
+cd smart-invoice-backend
+python -m scripts.backfill_embeddings

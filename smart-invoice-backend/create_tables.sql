@@ -270,10 +270,8 @@ CREATE TABLE conversation_messages (
 
 CREATE INDEX idx_messages_conversation ON conversation_messages (conversation_id, created_at ASC);
 
--- ─── Persistent Memory: User Memories (Vector-Ready) ─────────────────────────
--- The 'embedding' column is nullable and unused now.
--- When pgvector is enabled later, populate it and add an ivfflat/hnsw index.
--- The MemoryProvider abstraction handles the swap with zero code changes elsewhere.
+-- ─── Persistent Memory: User Memories (pgvector enabled) ─────────────────────
+-- Requires: CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE user_memories (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -284,7 +282,7 @@ CREATE TABLE user_memories (
   value       TEXT NOT NULL,
   source      TEXT NOT NULL DEFAULT 'agent',
   confidence  FLOAT NOT NULL DEFAULT 1.0,
-  -- embedding VECTOR(1536),  -- Uncomment after enabling pgvector extension
+  embedding   VECTOR(1536),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -293,4 +291,37 @@ CREATE TABLE user_memories (
 
 CREATE INDEX idx_memories_owner ON user_memories (owner_id, category);
 CREATE INDEX idx_memories_subject ON user_memories (owner_id, subject);
--- Future: CREATE INDEX idx_memories_embedding ON user_memories USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX idx_memories_embedding ON user_memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- ─── RPC: Vector similarity search for memories ─────────────────────────────
+CREATE OR REPLACE FUNCTION match_memories(
+  query_embedding VECTOR(1536),
+  match_count INT DEFAULT 10,
+  filter_owner_id TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+  id UUID,
+  owner_id TEXT,
+  category TEXT,
+  subject TEXT,
+  key TEXT,
+  value TEXT,
+  source TEXT,
+  confidence FLOAT,
+  similarity FLOAT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    um.id, um.owner_id, um.category, um.subject,
+    um.key, um.value, um.source, um.confidence,
+    1 - (um.embedding <=> query_embedding) AS similarity
+  FROM user_memories um
+  WHERE um.owner_id = filter_owner_id
+    AND um.embedding IS NOT NULL
+  ORDER BY um.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;

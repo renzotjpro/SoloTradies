@@ -78,9 +78,12 @@ def classify_intent(state: AgentState):
             "You are a message classifier for an invoicing app. "
             "Classify the user's LATEST message.\n\n"
             "Return 'conversation' for: greetings, small talk, thanks, "
-            "questions about the app, or anything NOT about creating an invoice.\n\n"
-            "Return 'invoice' for: mentions of clients, amounts, services, "
-            "billing, line items, dates of service, or any intent to create/modify an invoice."
+            "questions about the app, questions about past work/rates/pricing/history, "
+            "or anything NOT explicitly requesting to create a new invoice.\n\n"
+            "Return 'invoice' for: explicit requests to create/send/generate an invoice, "
+            "or providing invoice details (client name + amounts/services for a new invoice).\n\n"
+            "Key distinction: asking 'what are my rates?' or 'how much did I charge X?' "
+            "is 'conversation'. Saying 'invoice John $500 for plumbing' is 'invoice'."
         )
 
         result: IntentClassification = structured_llm.invoke(
@@ -719,11 +722,12 @@ def generate_invoice(state: AgentState):
         try:
             provider = MemoryProvider(sb, owner_id)
             for item in data.items:
-                if item.description and item.unit_price:
+                price = item.unit_price or item.amount
+                if item.description and price:
                     provider.store(
                         category="client_pricing",
                         key=item.description,
-                        value=f"${item.unit_price:,.2f}/unit" if item.quantity and item.quantity > 1 else f"${item.unit_price:,.2f}",
+                        value=f"${price:,.2f}/unit" if item.quantity and item.quantity > 1 else f"${price:,.2f}",
                         subject=data.client_name,
                         source="agent",
                     )

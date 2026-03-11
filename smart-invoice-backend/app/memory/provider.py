@@ -1,16 +1,8 @@
 """
 MemoryProvider — abstraction layer for memory retrieval and storage.
 
-Currently uses ILIKE text search on structured user_memories table.
-Future: swap internals to use pgvector semantic search (Supabase Vector)
-without changing any calling code in the agent graph or API routers.
-
-Upgrade path:
-1. Enable pgvector extension in Supabase dashboard
-2. Populate embedding column on user_memories rows
-3. Add Supabase RPC function match_memories(query_embedding, match_count, owner_id)
-4. Update retrieve_relevant() to generate embeddings and call the RPC
-5. Update store() to generate embeddings on write
+Uses pgvector semantic search via OpenAI text-embedding-3-small embeddings.
+Falls back to ILIKE text search if embedding generation fails.
 """
 
 from supabase import Client
@@ -32,8 +24,7 @@ class MemoryProvider:
     def retrieve_relevant(self, query: str, limit: int = 10) -> list[dict]:
         """Retrieve memories relevant to a natural language query.
 
-        Now: ILIKE text search on key/value/subject fields.
-        Future: vector similarity search using embeddings.
+        Uses pgvector similarity search with ILIKE fallback.
         """
         results = search_memories(self.sb, self.owner_id, query)
         return results[:limit]
@@ -48,8 +39,7 @@ class MemoryProvider:
 
         Uses upsert on (owner_id, category, subject, key) so repeated
         stores for the same fact update rather than duplicate.
-
-        Future: also generates and stores embedding vector alongside text.
+        Generates and stores embedding vector alongside text.
         """
         return upsert_memory(
             self.sb, self.owner_id, category, key, value,

@@ -89,7 +89,7 @@ export function PromptInput({ onSubmit, disabled, variant = "home" }: PromptInpu
     }
 
     return (
-        <div className="w-full max-w-4xl mx-auto px-4">
+        <div className="w-full">
             <div className="relative group">
                 {/* Glow effect behind the input */}
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-400 to-rose-400 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
@@ -102,7 +102,7 @@ export function PromptInput({ onSubmit, disabled, variant = "home" }: PromptInpu
                         onChange={handleInput}
                         onKeyDown={handleKeyDown}
                         placeholder="Describe what you need..."
-                        className="w-full min-h-[100px] resize-none bg-transparent px-4 pt-4 pb-2 text-foreground placeholder-muted-foreground focus:outline-none text-lg"
+                        className="w-full min-h-[220px] resize-none bg-transparent px-6 pt-6 pb-2 text-foreground placeholder-muted-foreground focus:outline-none text-xl"
                         maxLength={maxChars}
                         disabled={disabled}
                     />

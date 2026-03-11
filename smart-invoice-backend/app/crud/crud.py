@@ -663,7 +663,12 @@ def get_messages(sb: Client, conversation_id: str, limit: int = 100, offset: int
 # --- Memory CRUD ---
 def upsert_memory(sb: Client, owner_id: str, category: str, key: str, value: str,
                   subject: str = None, source: str = "agent"):
+    from app.memory.embeddings import generate_embedding
+
     now = datetime.now(timezone.utc).isoformat()
+    embed_text = f"{key} {value} {subject or ''}".strip()
+    embedding = generate_embedding(embed_text)
+
     data = {
         "owner_id": owner_id,
         "category": category,
@@ -674,6 +679,9 @@ def upsert_memory(sb: Client, owner_id: str, category: str, key: str, value: str
         "created_at": now,
         "updated_at": now,
     }
+    if embedding is not None:
+        data["embedding"] = str(embedding)
+
     result = (
         sb.table("user_memories")
         .upsert(data, on_conflict="owner_id,category,subject,key")
@@ -701,8 +709,25 @@ def delete_memory(sb: Client, memory_id: str, owner_id: str):
     return len(result.data) > 0
 
 def search_memories(sb: Client, owner_id: str, query_text: str, category: str = None):
-    """Text-based memory search using ILIKE.
-    Future: Replace internals with pgvector similarity search via MemoryProvider."""
+    """Search memories using pgvector similarity, with ILIKE fallback."""
+    from app.memory.embeddings import generate_embedding
+
+    embedding = generate_embedding(query_text)
+    if embedding is not None:
+        try:
+            result = sb.rpc("match_memories", {
+                "query_embedding": str(embedding),
+                "match_count": 15,
+                "filter_owner_id": owner_id,
+            }).execute()
+            if result.data:
+                if category:
+                    return [m for m in result.data if m.get("category") == category]
+                return result.data
+        except Exception:
+            pass  # Fall through to ILIKE
+
+    # Fallback: ILIKE text search
     pattern = f"%{query_text}%"
     q = (
         sb.table("user_memories")
