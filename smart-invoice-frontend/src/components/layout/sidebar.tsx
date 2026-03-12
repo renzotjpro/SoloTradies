@@ -62,13 +62,13 @@ export function Sidebar() {
                         key={item.label}
                         href={item.href}
                         className={`flex flex-row items-center justify-center lg:justify-between group-hover/sidebar:justify-between py-3 px-3 lg:px-4 group-hover/sidebar:px-4 rounded-2xl transition-colors ${isActive(item.href)
-                            ? "bg-brand-600 text-white shadow-md shadow-brand-200 dark:shadow-brand-900"
-                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                            ? "bg-brand-500/15 text-brand-600 font-semibold dark:bg-brand-500/10 dark:text-brand-400"
+                            : "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground font-medium"
                             }`}
                     >
                         <div className="flex items-center gap-3">
                             <item.icon className="w-5 h-5 shrink-0" strokeWidth={2} />
-                            <span className="font-medium whitespace-nowrap hidden lg:block group-hover/sidebar:block">
+                            <span className="whitespace-nowrap hidden lg:block group-hover/sidebar:block">
                                 {item.label}
                             </span>
                         </div>

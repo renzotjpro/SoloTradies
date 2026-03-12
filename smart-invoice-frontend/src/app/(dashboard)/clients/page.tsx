@@ -107,23 +107,23 @@ export default function ClientsPage() {
   return (
     <div className="max-w-[1600px] mx-auto pb-32">
       {/* Utility Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-12">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-10">
         <div className="relative flex-1 w-full max-w-xl">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
             placeholder="Search clients by name, company or ABN..."
-            className="pl-12 h-12 bg-white border-slate-200 rounded-xl focus:ring-blue-500 text-base"
+            className="pl-11 h-10 bg-slate-50 border-transparent rounded-full hover:bg-slate-100 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 h-12">
+          <div className="flex items-center bg-slate-50 rounded-full p-1 h-10">
             <Button 
               variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
-              className={`rounded-lg h-full gap-2 px-4 font-bold ${viewMode === "grid" ? "bg-blue-600 shadow-sm" : "text-slate-500"}`}
+              className={`rounded-full h-full gap-2 px-4 font-medium text-sm ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
               onClick={() => setViewMode("grid")}
             >
               <LayoutGrid className="size-4" />
@@ -132,7 +132,7 @@ export default function ClientsPage() {
             <Button 
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
-              className={`rounded-lg h-full gap-2 px-4 font-bold ${viewMode === "list" ? "bg-blue-600 shadow-sm" : "text-slate-500"}`}
+              className={`rounded-full h-full gap-2 px-4 font-medium text-sm ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
               onClick={() => setViewMode("list")}
             >
               <List className="size-4" />
@@ -140,12 +140,12 @@ export default function ClientsPage() {
             </Button>
           </div>
 
-          <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl text-slate-500">
-            <Users className="size-5" />
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500">
+            <Users className="size-4" />
           </Button>
 
-          <Button className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
-            <Plus className="size-5" />
+          <Button className="h-10 px-5 rounded-full bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm gap-2 shadow-sm transition-colors">
+            <Plus className="size-4" />
             Add Client
           </Button>
         </div>
@@ -154,13 +154,6 @@ export default function ClientsPage() {
       {/* Page Header */}
       <div className="flex items-end justify-between mb-8 group">
         <div className="space-y-4">
-          <div className="flex items-center gap-3 text-sm font-bold text-slate-400 group-hover:text-blue-600 transition-colors">
-            <Checkbox 
-              checked={selectedIds.size === sortedAndFilteredClients.length && sortedAndFilteredClients.length > 0}
-              onCheckedChange={(checked) => toggleSelectAll(!!checked)}
-            />
-            SELECT ALL
-          </div>
           <div>
             <h1 className="text-4xl font-extrabold text-slate-900 mb-2">Client Directory</h1>
             <p className="text-slate-500 text-lg font-medium">
