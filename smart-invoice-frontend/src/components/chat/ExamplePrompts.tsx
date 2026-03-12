@@ -18,8 +18,8 @@ const EXAMPLES = [
         description: "Automatically summarize all financial activities into a formatted PDF.",
         prompt: "Generate a quarterly financial summary report for Q1 2024.",
         icon: FileLineChart,
-        color: "text-blue-500",
-        bg: "bg-blue-50",
+        color: "text-brand-500",
+        bg: "bg-brand-50",
     },
 ];
 

@@ -51,7 +51,7 @@ export function InvoiceDraftCard({ data, invoiceId }: InvoiceDraftCardProps) {
                 "group relative overflow-hidden rounded-2xl border transition-all duration-300 w-80 shadow-sm hover:shadow-md",
                 isFinal
                     ? "bg-gradient-to-br from-white to-brand-50/30 border-brand-200 dark:from-slate-900 dark:to-brand-950/20 dark:border-brand-900/50"
-                    : "bg-white border-indigo-100 dark:bg-slate-900 dark:border-slate-800"
+                    : "bg-white border-brand-100 dark:bg-slate-900 dark:border-slate-800"
             )}
         >
             {/* Header */}
@@ -65,7 +65,7 @@ export function InvoiceDraftCard({ data, invoiceId }: InvoiceDraftCardProps) {
                     {isFinal ? (
                         <CheckCircle2 className="w-4 h-4 text-brand-600 dark:text-brand-400" />
                     ) : (
-                        <FileText className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                        <FileText className="w-4 h-4 text-brand-500 dark:text-brand-400" />
                     )}
                     <span className={cn(
                         "font-semibold text-xs uppercase tracking-wider",
@@ -146,7 +146,7 @@ export function InvoiceDraftCard({ data, invoiceId }: InvoiceDraftCardProps) {
 
             {/* Subtle bottom accent for final card */}
             {isFinal && (
-                <div className="h-1 w-full bg-gradient-to-r from-brand-400 to-indigo-500" />
+                <div className="h-1 w-full bg-gradient-to-r from-brand-400 to-brand-600" />
             )}
         </div>
     );

@@ -6,7 +6,7 @@ import { Plus, Search, Loader2, Users, LayoutGrid, List, SlidersHorizontal, Chev
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authFetch } from "@/lib/api/authFetch";
-import { ClientCard } from "@/components/clients/ClientCard";
+import { ClientCard, ClientCardVariant } from "@/components/clients/ClientCard";
 import { ClientListRow } from "@/components/clients/ClientListRow";
 import { BulkActionToolbar } from "@/components/clients/BulkActionToolbar";
 import { AddClientCard } from "@/components/clients/AddClientCard";
@@ -38,6 +38,7 @@ export default function ClientsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [gridVariant, setGridVariant] = useState<ClientCardVariant>("standard");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"name-asc" | "name-desc" | "recent">("name-asc");
 
@@ -105,9 +106,22 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto pb-32">
-      {/* Utility Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-10">
+    <div className="max-w-[1600px] mx-auto pb-32 px-4 md:px-0">
+      {/* Search Bar (Mobile Design matched) */}
+      <div className="md:hidden mt-4 mb-6">
+        <div className="relative w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+          <Input
+            placeholder="Search clients..."
+            className="pl-11 h-12 bg-slate-100 border-transparent rounded-2xl focus:bg-white focus:ring-2 focus:ring-brand-500 transition-all text-sm font-medium"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Utility Bar (Desktop only or hidden on mobile) */}
+      <div className="hidden md:flex flex-col md:flex-row items-center justify-between gap-4 mb-10">
         <div className="relative flex-1 w-full max-w-xl">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
@@ -140,6 +154,35 @@ export default function ClientsPage() {
             </Button>
           </div>
 
+          {viewMode === "grid" && (
+            <div className="flex items-center bg-slate-50 rounded-full p-1 h-10">
+              <Button 
+                variant={gridVariant === "standard" ? "default" : "ghost"}
+                size="sm"
+                className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "standard" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
+                onClick={() => setGridVariant("standard")}
+              >
+                Standard
+              </Button>
+              <Button 
+                variant={gridVariant === "compact-v1" ? "default" : "ghost"}
+                size="sm"
+                className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "compact-v1" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
+                onClick={() => setGridVariant("compact-v1")}
+              >
+                V1 (Tight)
+              </Button>
+              <Button 
+                variant={gridVariant === "compact-v2" ? "default" : "ghost"}
+                size="sm"
+                className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "compact-v2" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
+                onClick={() => setGridVariant("compact-v2")}
+              >
+                V2 (Dense)
+              </Button>
+            </div>
+          )}
+
           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500">
             <Users className="size-4" />
           </Button>
@@ -151,19 +194,22 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Page Header */}
-      <div className="flex items-end justify-between mb-8 group">
-        <div className="space-y-4">
-          <div>
-            <h1 className="text-4xl font-extrabold text-slate-900 mb-2">Client Directory</h1>
-            <p className="text-slate-500 text-lg font-medium">
-              Manage and monitor your business relationships with <span className="text-slate-900 font-bold">{clients.length}</span> total clients.
-            </p>
+      {/* Page Header (Responsive Layout) */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
+        <div className="space-y-2 md:space-y-4">
+          <div className="flex justify-between items-start md:block">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">Client Directory</h1>
+            <Button className="md:hidden h-9 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs gap-1.5 shadow-sm transition-colors">
+              Add Client
+            </Button>
           </div>
+          <p className="text-slate-500 text-sm md:text-lg font-medium max-w-xs md:max-w-none">
+            Manage and monitor your business relationships with <span className="text-slate-900 font-bold">{clients.length}</span> total clients.
+          </p>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-400">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+          <div className="hidden md:flex items-center gap-2 text-sm font-bold text-slate-400 shrink-0">
             <Checkbox 
                checked={selectedIds.size === sortedAndFilteredClients.length && sortedAndFilteredClients.length > 0}
                onCheckedChange={(checked) => toggleSelectAll(!!checked)}
@@ -173,12 +219,10 @@ export default function ClientsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-12 px-4 rounded-xl border-slate-200 text-slate-600 font-bold gap-8">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="size-4" />
-                  Sort: {sortBy === "name-asc" ? "A-Z" : sortBy === "name-desc" ? "Z-A" : "Recent"}
-                </div>
-                <ChevronDown className="size-4" />
+              <Button variant="outline" className="h-10 md:h-12 px-3 md:px-4 rounded-xl border-slate-200 text-slate-600 font-bold text-xs md:text-sm gap-2">
+                <SlidersHorizontal className="size-3 md:size-4" />
+                Sort: {sortBy === "name-asc" ? "A-Z" : sortBy === "name-desc" ? "Z-A" : "Recent"}
+                <ChevronDown className="size-3 md:size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -190,12 +234,10 @@ export default function ClientsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-12 px-4 rounded-xl border-slate-200 text-slate-600 font-bold gap-8">
-                <div className="flex items-center gap-2">
-                  <History className="size-4" />
-                  Sort: Recent
-                </div>
-                <ChevronDown className="size-4" />
+              <Button variant="outline" className="h-10 md:h-12 px-3 md:px-4 rounded-xl border-slate-200 text-slate-600 font-bold text-xs md:text-sm gap-2">
+                <History className="size-3 md:size-4" />
+                Recent
+                <ChevronDown className="size-3 md:size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -227,7 +269,13 @@ export default function ClientsPage() {
       ) : (
         <>
           {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+            <div className={`grid gap-6 ${
+              gridVariant === "compact-v2" 
+                ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+                : gridVariant === "compact-v1"
+                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+                : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+            }`}>
               {sortedAndFilteredClients.map((client) => (
                 <ClientCard 
                   key={client.id} 
@@ -236,9 +284,10 @@ export default function ClientsPage() {
                   onSelect={(selected) => toggleSelect(client.id, selected)}
                   onEdit={() => router.push(`/clients/${client.id}/edit`)}
                   onDelete={() => {}}
+                  variant={gridVariant}
                 />
               ))}
-              <AddClientCard />
+              <AddClientCard variant={gridVariant} />
             </div>
           ) : (
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
