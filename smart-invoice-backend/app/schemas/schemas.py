@@ -11,6 +11,7 @@ class ClientBase(BaseModel):
     phone: Optional[str] = None
     abn: Optional[str] = None
     role: Optional[str] = None
+    state: Optional[str] = None
     notes: Optional[str] = None
 
 class ClientCreate(ClientBase):
@@ -24,6 +25,7 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = None
     abn: Optional[str] = None
     role: Optional[str] = None
+    state: Optional[str] = None
     notes: Optional[str] = None
 
 class Client(ClientBase):

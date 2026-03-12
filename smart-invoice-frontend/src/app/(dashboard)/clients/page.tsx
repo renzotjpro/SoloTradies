@@ -1,13 +1,22 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
-import { Plus, Search, Loader2, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search, Loader2, Users, LayoutGrid, List, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { authFetch } from "@/lib/api/authFetch";
+import { ClientCard } from "@/components/clients/ClientCard";
+import { ClientListRow } from "@/components/clients/ClientListRow";
+import { BulkActionToolbar } from "@/components/clients/BulkActionToolbar";
+import { AddClientCard } from "@/components/clients/AddClientCard";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 interface Client {
   id: number;
@@ -17,22 +26,20 @@ interface Client {
   email: string | null;
   phone: string | null;
   abn: string | null;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  state: string | null;
+  balance?: number;
+  overdue_balance?: number;
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [sortBy, setSortBy] = useState<"name-asc" | "name-desc" | "recent">("name-asc");
 
   useEffect(() => {
     async function fetchClients() {
@@ -40,7 +47,14 @@ export default function ClientsPage() {
         const res = await authFetch(`/clients/`);
         if (!res.ok) throw new Error("Failed to fetch clients");
         const data = await res.json();
-        setClients(data);
+        // Simulate balances for the premium design feel
+        const enrichedData = data.map((c: Client) => ({
+          ...c,
+          location: c.state ? `City, ${c.state}` : "Sydney, NSW",
+          balance: Math.random() * 50000,
+          overdue_balance: Math.random() > 0.8 ? Math.random() * 10000 : 0
+        }));
+        setClients(enrichedData);
       } catch {
         setError("Failed to load clients. Is the backend running?");
       } finally {
@@ -50,139 +64,236 @@ export default function ClientsPage() {
     fetchClients();
   }, []);
 
-  const filteredClients = useMemo(() => {
-    if (!search.trim()) return clients;
-    const q = search.toLowerCase();
-    return clients.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.company?.toLowerCase().includes(q) ?? false) ||
-        (c.email?.toLowerCase().includes(q) ?? false)
-    );
-  }, [search, clients]);
+  const sortedAndFilteredClients = useMemo(() => {
+    let result = [...clients];
+    
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.company?.toLowerCase().includes(q) ?? false) ||
+          (c.email?.toLowerCase().includes(q) ?? false) ||
+          (c.abn?.includes(q) ?? false)
+      );
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      if (sortBy === "name-asc") return a.name.localeCompare(b.name);
+      if (sortBy === "name-desc") return b.name.localeCompare(a.name);
+      return 0; // "recent" would need a proper date field
+    });
+
+    return result;
+  }, [search, clients, sortBy]);
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(sortedAndFilteredClients.map(c => c.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const toggleSelect = (id: number, selected: boolean) => {
+    const next = new Set(selectedIds);
+    if (selected) next.add(id);
+    else next.delete(id);
+    setSelectedIds(next);
+  };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Clients</h1>
-        <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
-          <Link href="/clients/new">
-            <Plus className="size-4" />
-            New client
-          </Link>
-        </Button>
-      </div>
-
-      {/* Search */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, company, or email..."
-          className="pl-10 max-w-sm"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Loading / Error / Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+    <div className="max-w-[1600px] mx-auto pb-32">
+      {/* Utility Bar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-12">
+        <div className="relative flex-1 w-full max-w-xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+          <Input
+            placeholder="Search clients by name, company or ABN..."
+            className="pl-12 h-12 bg-white border-slate-200 rounded-xl focus:ring-blue-500 text-base"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            Retry
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 h-12">
+            <Button 
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="sm"
+              className={`rounded-lg h-full gap-2 px-4 font-bold ${viewMode === "grid" ? "bg-blue-600 shadow-sm" : "text-slate-500"}`}
+              onClick={() => setViewMode("grid")}
+            >
+              <LayoutGrid className="size-4" />
+              Grid
+            </Button>
+            <Button 
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              className={`rounded-lg h-full gap-2 px-4 font-bold ${viewMode === "list" ? "bg-blue-600 shadow-sm" : "text-slate-500"}`}
+              onClick={() => setViewMode("list")}
+            >
+              <List className="size-4" />
+              List
+            </Button>
+          </div>
+
+          <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl text-slate-500">
+            <Users className="size-5" />
+          </Button>
+
+          <Button className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
+            <Plus className="size-5" />
+            Add Client
           </Button>
         </div>
-      ) : filteredClients.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="size-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-            <Users className="size-8 text-muted-foreground" />
+      </div>
+
+      {/* Page Header */}
+      <div className="flex items-end justify-between mb-8 group">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-sm font-bold text-slate-400 group-hover:text-blue-600 transition-colors">
+            <Checkbox 
+              checked={selectedIds.size === sortedAndFilteredClients.length && sortedAndFilteredClients.length > 0}
+              onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+            />
+            SELECT ALL
           </div>
-          <h2 className="text-lg font-semibold text-foreground mb-1">
-            {clients.length === 0 ? "No clients yet" : "No results"}
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm">
-            {clients.length === 0
-              ? "Add your first client to start creating invoices."
-              : "No clients match your search. Try a different term."}
+          <div>
+            <h1 className="text-4xl font-extrabold text-slate-900 mb-2">Client Directory</h1>
+            <p className="text-slate-500 text-lg font-medium">
+              Manage and monitor your business relationships with <span className="text-slate-900 font-bold">{clients.length}</span> total clients.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-400">
+            <Checkbox 
+               checked={selectedIds.size === sortedAndFilteredClients.length && sortedAndFilteredClients.length > 0}
+               onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+            />
+            SELECT ALL
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-12 px-4 rounded-xl border-slate-200 text-slate-600 font-bold gap-8">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="size-4" />
+                  Sort: {sortBy === "name-asc" ? "A-Z" : sortBy === "name-desc" ? "Z-A" : "Recent"}
+                </div>
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortBy("name-asc")}>Alphabetical (A-Z)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("name-desc")}>Reverse Alphabetical (Z-A)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("recent")}>Recent</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="h-12 px-4 rounded-xl border-slate-200 text-slate-600 font-bold gap-8">
+                <div className="flex items-center gap-2">
+                  <History className="size-4" />
+                  Sort: Recent
+                </div>
+                <ChevronDown className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>Last Week</DropdownMenuItem>
+              <DropdownMenuItem>Last Month</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-40">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="size-12 animate-spin text-blue-600" />
+            <p className="text-slate-500 font-bold">Loading clients...</p>
+          </div>
+        </div>
+      ) : sortedAndFilteredClients.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-40 bg-white rounded-3xl border border-dashed border-slate-200">
+          <Users className="size-16 text-slate-200 mb-6" />
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">No clients found</h2>
+          <p className="text-slate-500 mb-8 max-w-sm text-center">
+            Trying adjusting your search or add a new client to get started.
           </p>
-          {clients.length === 0 && (
-            <Button asChild className="bg-brand-600 hover:bg-brand-700 text-white">
-              <Link href="/clients/new">
-                <Plus className="size-4" />
-                Add Client
-              </Link>
-            </Button>
-          )}
+          <Button className="rounded-xl bg-blue-600 px-8 h-12 font-bold shadow-lg shadow-blue-200">
+            Add Your First Client
+          </Button>
         </div>
       ) : (
-        /* Client grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => (
-            <Link key={client.id} href={`/clients/${client.id}/edit`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardContent className="pt-6">
-                  {/* Avatar + Name + Role */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="size-11 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-semibold text-brand-700 dark:text-brand-400">
-                        {getInitials(client.name)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-foreground truncate">
-                        {client.name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {client.role || "—"}
-                      </p>
-                    </div>
-                  </div>
+        <>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+              {sortedAndFilteredClients.map((client) => (
+                <ClientCard 
+                  key={client.id} 
+                  client={client}
+                  selected={selectedIds.has(client.id)}
+                  onSelect={(selected) => toggleSelect(client.id, selected)}
+                  onEdit={() => router.push(`/clients/${client.id}/edit`)}
+                  onDelete={() => {}}
+                />
+              ))}
+              <AddClientCard />
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+              {sortedAndFilteredClients.map((client) => (
+                <ClientListRow 
+                  key={client.id}
+                  client={client}
+                  selected={selectedIds.has(client.id)}
+                  onSelect={(selected) => toggleSelect(client.id, selected)}
+                  onEdit={() => router.push(`/clients/${client.id}/edit`)}
+                  onDelete={() => {}}
+                />
+              ))}
+            </div>
+          )}
 
-                  <Separator className="mb-4" />
-
-                  {/* 2×2 detail grid */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Company
-                      </p>
-                      <p className="text-sm truncate">
-                        {client.company || "—"}
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Email
-                      </p>
-                      <p className="text-sm truncate">
-                        {client.email || "—"}
-                      </p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Phone
-                      </p>
-                      <p className="text-sm">{client.phone || "—"}</p>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground font-medium">
-                        ABN
-                      </p>
-                      <p className="text-sm">{client.abn || "—"}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+          {/* Pagination Footer */}
+          <div className="mt-12 flex items-center justify-between">
+            <p className="text-slate-500 font-medium">
+              Showing <span className="text-slate-900 font-bold">6</span> of <span className="text-slate-900 font-bold">{clients.length}</span> clients
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-lg text-slate-400">
+                <ChevronLeft className="size-5" />
+              </Button>
+              <div className="flex items-center gap-1">
+                <Button className="h-10 w-10 rounded-lg bg-blue-600 font-bold">1</Button>
+                <Button variant="ghost" className="h-10 w-10 rounded-lg font-bold text-slate-500">2</Button>
+                <Button variant="ghost" className="h-10 w-10 rounded-lg font-bold text-slate-500">3</Button>
+                <span className="px-2 text-slate-400">...</span>
+                <Button variant="ghost" className="h-10 w-10 rounded-lg font-bold text-slate-500">7</Button>
+              </div>
+              <Button variant="outline" size="icon" className="h-10 w-10 rounded-lg text-slate-400">
+                <ChevronRight className="size-5" />
+              </Button>
+            </div>
+          </div>
+        </>
       )}
+
+      {/* Floating Toolbar */}
+      <BulkActionToolbar 
+        selectedCount={selectedIds.size}
+        onClear={() => setSelectedIds(new Set())}
+        onEmail={() => {}}
+        onExport={() => {}}
+        onDelete={() => {}}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿
+
 CREATE TABLE users (
 	id SERIAL NOT NULL, 
 	name VARCHAR, 
@@ -24,7 +24,8 @@ CREATE TABLE clients (
 	phone VARCHAR, 
 	abn VARCHAR, 
 	role VARCHAR, 
-	notes VARCHAR, 
+	notes TEXT, 
+	state VARCHAR, 
 	owner_id TEXT,
 	created_at TIMESTAMP WITHOUT TIME ZONE, 
 	updated_at TIMESTAMP WITHOUT TIME ZONE, 
@@ -189,6 +190,8 @@ create table invoice_custom_labels (
 
 -- ─── Migration: owner_id INTEGER → TEXT (run on existing databases) ────────
 -- ALTER TABLE clients ALTER COLUMN owner_id TYPE text USING owner_id::text;
+-- ALTER TABLE clients ADD COLUMN IF NOT EXISTS state TEXT;
+-- ALTER TABLE clients ADD COLUMN IF NOT EXISTS notes TEXT;
 -- ALTER TABLE invoices ALTER COLUMN owner_id TYPE text USING owner_id::text;
 -- ALTER TABLE expenses ALTER COLUMN owner_id TYPE text USING owner_id::text;
 -- ALTER TABLE organizations ALTER COLUMN owner_id TYPE text USING owner_id::text;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Trash2, Loader2, MapPin, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,26 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { authFetch } from "@/lib/api/authFetch";
+
+const AU_STATES = [
+  { value: "NSW", label: "New South Wales (NSW)" },
+  { value: "VIC", label: "Victoria (VIC)" },
+  { value: "QLD", label: "Queensland (QLD)" },
+  { value: "SA", label: "South Australia (SA)" },
+  { value: "WA", label: "Western Australia (WA)" },
+  { value: "TAS", label: "Tasmania (TAS)" },
+  { value: "NT", label: "Northern Territory (NT)" },
+  { value: "ACT", label: "Australian Capital Territory (ACT)" },
+];
 
 export default function EditClientPage() {
   const router = useRouter();
@@ -35,6 +53,8 @@ export default function EditClientPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [state, setState] = useState("");
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     async function fetchClient() {
@@ -49,6 +69,8 @@ export default function EditClientPage() {
         setEmail(data.email || "");
         setPhone(data.phone || "");
         setAddress(data.address || "");
+        setState(data.state || "");
+        setNotes(data.notes || "");
       } catch {
         setError("Failed to load client. Is the backend running?");
       } finally {
@@ -77,6 +99,8 @@ export default function EditClientPage() {
           email: email.trim() || null,
           phone: phone.trim() || null,
           address: address.trim() || null,
+          state: state || null,
+          notes: notes.trim() || null,
         }),
       });
       if (!res.ok) throw new Error("Failed to update client");
@@ -243,13 +267,64 @@ export default function EditClientPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="address">Street Address</Label>
               <Textarea
                 id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Street address, suburb, state, postcode"
+                placeholder="Street address, suburb, postcode"
                 rows={2}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Location */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MapPin className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Location</CardTitle>
+            </div>
+            <CardDescription>State or territory for this client</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="state">State / Territory</Label>
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select a state or territory..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {AU_STATES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Internal Notes */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <StickyNote className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base">Internal Notes</CardTitle>
+            </div>
+            <CardDescription>Private notes — not visible on invoices</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Prefers email contact, usually pays within 7 days..."
+                rows={4}
               />
             </div>
           </CardContent>
