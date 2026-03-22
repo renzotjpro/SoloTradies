@@ -5,18 +5,30 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, Loader2, Users, LayoutGrid, List, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { authFetch } from "@/lib/api/authFetch";
+import { deleteClient } from "@/lib/api/clients";
 import { ClientCard, ClientCardVariant } from "@/components/clients/ClientCard";
 import { ClientListRow } from "@/components/clients/ClientListRow";
 import { BulkActionToolbar } from "@/components/clients/BulkActionToolbar";
 import { AddClientCard } from "@/components/clients/AddClientCard";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 interface Client {
   id: number;
@@ -38,9 +50,12 @@ export default function ClientsPage() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [gridVariant, setGridVariant] = useState<ClientCardVariant>("standard");
+  const [gridVariant, setGridVariant] = useState<ClientCardVariant>("compact-v2");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortBy, setSortBy] = useState<"name-asc" | "name-desc" | "recent">("name-asc");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function fetchClients() {
@@ -48,12 +63,9 @@ export default function ClientsPage() {
         const res = await authFetch(`/clients/`);
         if (!res.ok) throw new Error("Failed to fetch clients");
         const data = await res.json();
-        // Simulate balances for the premium design feel
         const enrichedData = data.map((c: Client) => ({
           ...c,
           location: c.state ? `City, ${c.state}` : "Sydney, NSW",
-          balance: Math.random() * 50000,
-          overdue_balance: Math.random() > 0.8 ? Math.random() * 10000 : 0
         }));
         setClients(enrichedData);
       } catch {
@@ -89,6 +101,49 @@ export default function ClientsPage() {
 
     return result;
   }, [search, clients, sortBy]);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteClient(deleteTarget.id);
+      setClients((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteTarget.id);
+        return next;
+      });
+      toast.success(`${deleteTarget.name} has been deleted`);
+    } catch {
+      toast.error("Failed to delete client. Please try again.");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    setDeleting(true);
+    const ids = Array.from(selectedIds);
+    let deletedCount = 0;
+    for (const id of ids) {
+      try {
+        await deleteClient(id);
+        deletedCount++;
+      } catch {
+        // continue deleting others
+      }
+    }
+    setClients((prev) => prev.filter((c) => !selectedIds.has(c.id)));
+    setSelectedIds(new Set());
+    setBulkDeleteOpen(false);
+    setDeleting(false);
+    if (deletedCount === ids.length) {
+      toast.success(`${deletedCount} client${deletedCount > 1 ? "s" : ""} deleted`);
+    } else {
+      toast.error(`Deleted ${deletedCount} of ${ids.length} clients. Some failed.`);
+    }
+  };
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -157,20 +212,12 @@ export default function ClientsPage() {
           {viewMode === "grid" && (
             <div className="flex items-center bg-slate-50 rounded-full p-1 h-10">
               <Button 
-                variant={gridVariant === "standard" ? "default" : "ghost"}
-                size="sm"
-                className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "standard" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
-                onClick={() => setGridVariant("standard")}
-              >
-                Standard
-              </Button>
-              <Button 
                 variant={gridVariant === "compact-v1" ? "default" : "ghost"}
                 size="sm"
                 className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "compact-v1" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
                 onClick={() => setGridVariant("compact-v1")}
               >
-                V1 (Tight)
+                Standard
               </Button>
               <Button 
                 variant={gridVariant === "compact-v2" ? "default" : "ghost"}
@@ -178,7 +225,7 @@ export default function ClientsPage() {
                 className={`rounded-full h-full px-3 font-medium text-[11px] ${gridVariant === "compact-v2" ? "bg-white text-slate-900 shadow-sm hover:bg-white hover:text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}`}
                 onClick={() => setGridVariant("compact-v2")}
               >
-                V2 (Dense)
+                Power
               </Button>
             </div>
           )}
@@ -272,9 +319,7 @@ export default function ClientsPage() {
             <div className={`grid gap-6 ${
               gridVariant === "compact-v2" 
                 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
-                : gridVariant === "compact-v1"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
-                : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
             }`}>
               {sortedAndFilteredClients.map((client) => (
                 <ClientCard 
@@ -283,7 +328,7 @@ export default function ClientsPage() {
                   selected={selectedIds.has(client.id)}
                   onSelect={(selected) => toggleSelect(client.id, selected)}
                   onEdit={() => router.push(`/clients/${client.id}/edit`)}
-                  onDelete={() => {}}
+                  onDelete={() => setDeleteTarget({ id: client.id, name: client.company || client.name })}
                   variant={gridVariant}
                 />
               ))}
@@ -298,7 +343,7 @@ export default function ClientsPage() {
                   selected={selectedIds.has(client.id)}
                   onSelect={(selected) => toggleSelect(client.id, selected)}
                   onEdit={() => router.push(`/clients/${client.id}/edit`)}
-                  onDelete={() => {}}
+                  onDelete={() => setDeleteTarget({ id: client.id, name: client.company || client.name })}
                 />
               ))}
             </div>
@@ -329,13 +374,59 @@ export default function ClientsPage() {
       )}
 
       {/* Floating Toolbar */}
-      <BulkActionToolbar 
+      <BulkActionToolbar
         selectedCount={selectedIds.size}
         onClear={() => setSelectedIds(new Set())}
         onEmail={() => {}}
         onExport={() => {}}
-        onDelete={() => {}}
+        onDelete={() => setBulkDeleteOpen(true)}
       />
+
+      {/* Single Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteTarget?.name}</span>? This action cannot be undone and will permanently remove this client from your records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.size} Client{selectedIds.size > 1 ? "s" : ""}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold text-slate-900">{selectedIds.size} client{selectedIds.size > 1 ? "s" : ""}</span>? This action cannot be undone and will permanently remove them from your records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBulkDelete}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              {deleting ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

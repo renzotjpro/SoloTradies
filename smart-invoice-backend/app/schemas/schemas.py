@@ -37,6 +37,12 @@ class Client(ClientBase):
     class Config:
         from_attributes = True
 
+class ClientWithStats(Client):
+    balance: float = 0.0
+    overdue_balance: float = 0.0
+    invoice_count: int = 0
+    overdue_count: int = 0
+
 # --- Invoice Item Schemas ---
 class InvoiceItemCreate(BaseModel):
     description: str

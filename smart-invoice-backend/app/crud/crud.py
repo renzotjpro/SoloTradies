@@ -37,6 +37,61 @@ def get_clients(sb: Client, owner_id: str, skip: int = 0, limit: int = 100):
     )
     return result.data
 
+def get_clients_with_stats(sb: Client, owner_id: str, skip: int = 0, limit: int = 100):
+    from datetime import date
+
+    # Query 1: Get clients
+    clients_result = (
+        sb.table("clients")
+        .select("*")
+        .eq("owner_id", owner_id)
+        .range(skip, skip + limit - 1)
+        .execute()
+    )
+    clients = clients_result.data
+    if not clients:
+        return []
+
+    # Query 2: Get unpaid invoices (Draft, Sent, Overdue)
+    invoices_result = (
+        sb.table("invoices")
+        .select("client_id, total_amount, status, due_date")
+        .eq("owner_id", owner_id)
+        .in_("status", ["Draft", "Sent", "Overdue"])
+        .execute()
+    )
+
+    # Aggregate per client
+    today = date.today().isoformat()
+    stats: dict = {}
+
+    for inv in invoices_result.data:
+        cid = inv["client_id"]
+        if cid not in stats:
+            stats[cid] = {"balance": 0.0, "overdue_balance": 0.0, "invoice_count": 0, "overdue_count": 0}
+
+        amount = inv["total_amount"] or 0
+        status = inv["status"]
+        due_date = inv.get("due_date")
+
+        stats[cid]["balance"] += amount
+        stats[cid]["invoice_count"] += 1
+
+        is_overdue = (status == "Overdue") or (status == "Sent" and due_date and due_date < today)
+        if is_overdue:
+            stats[cid]["overdue_balance"] += amount
+            stats[cid]["overdue_count"] += 1
+
+    # Merge stats into clients
+    for client in clients:
+        client_stats = stats.get(client["id"], {})
+        client["balance"] = round(client_stats.get("balance", 0.0), 2)
+        client["overdue_balance"] = round(client_stats.get("overdue_balance", 0.0), 2)
+        client["invoice_count"] = client_stats.get("invoice_count", 0)
+        client["overdue_count"] = client_stats.get("overdue_count", 0)
+
+    return clients
+
 def get_client(sb: Client, client_id: int, owner_id: str):
     result = (
         sb.table("clients")

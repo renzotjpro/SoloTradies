@@ -24,12 +24,12 @@ interface Client {
   overdue_balance?: number;
 }
 
-export type ClientCardVariant = "standard" | "compact-v1" | "compact-v2";
+export type ClientCardVariant = "compact-v1" | "compact-v2";
 
 interface ClientCardProps {
   client: Client;
   selected: boolean;
-  onSelect: (checked: boolean) => void;
+  onSelect: (selected: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
   variant?: ClientCardVariant;
@@ -40,13 +40,13 @@ export function ClientCard({
   selected, 
   onSelect, 
   onEdit, 
-  onDelete,
-  variant = "standard"
+  onDelete, 
+  variant = "compact-v2" 
 }: ClientCardProps) {
   const isOverdue = (client.overdue_balance ?? 0) > 0;
   const isCompactV1 = variant === "compact-v1";
   const isCompactV2 = variant === "compact-v2";
-  const isCompact = isCompactV1 || isCompactV2;
+  const isCompact = true; // Both remaining variants are compact compared to the original standard
 
   return (
     <>
@@ -54,12 +54,12 @@ export function ClientCard({
       <Card className={`relative hover:shadow-lg transition-all duration-300 border-border group overflow-hidden hidden md:block ${isCompactV2 ? 'min-h-[200px]' : ''}`}>
         <CardContent className={isCompactV2 ? "p-4" : isCompactV1 ? "p-4" : "p-6"}>
           {/* Card Header & Identity */}
-          <div className={`flex justify-between items-start ${isCompact ? 'mb-3' : 'mb-6'}`}>
+          <div className="flex justify-between items-start mb-3">
             <div className="flex gap-3 items-start">
               <Checkbox 
                 checked={selected} 
                 onCheckedChange={(checked: boolean | "indeterminate") => onSelect(checked === true)}
-                className={isCompact ? "mt-0.5" : "mt-1"}
+                className="mt-0.5"
               />
               
               {isCompactV2 && (
@@ -82,9 +82,9 @@ export function ClientCard({
             </div>
             
             {!isCompactV2 && (
-              <div className={`${isCompactV1 ? 'size-12' : 'size-16'} rounded-full bg-slate-100 flex items-center justify-center border border-slate-200`}>
+              <div className="size-12 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
                 {/* Logo/Avatar Placeholder */}
-                <span className={`${isCompactV1 ? 'text-lg' : 'text-xl'} font-bold text-slate-400`}>
+                <span className="text-lg font-bold text-slate-400">
                   {(client.company || client.name).charAt(0).toUpperCase()}
                 </span>
               </div>
@@ -103,10 +103,10 @@ export function ClientCard({
             </DropdownMenu>
           </div>
 
-          {/* Client Info (Visible in Standard and V1) */}
+          {/* Client Info (Visible in Standard) */}
           {!isCompactV2 && (
-            <div className={`space-y-0.5 ${isCompactV1 ? 'mb-4 text-center' : 'mb-6 text-left'}`}>
-              <h3 className={`${isCompactV1 ? 'text-base' : 'text-lg'} font-bold text-slate-900 truncate`}>
+            <div className="space-y-0.5 mb-4 text-center">
+              <h3 className="text-base font-bold text-slate-900 truncate">
                 {client.company || client.name}
               </h3>
               <p className="text-sm text-slate-500 font-medium">
@@ -116,31 +116,31 @@ export function ClientCard({
           )}
 
           {/* Contact Details */}
-          <div className={`${isCompact ? 'grid grid-cols-1 gap-1.5' : 'space-y-3'} mb-4`}>
+          <div className="grid grid-cols-1 gap-1.5 mb-4">
             <div className="flex items-center gap-2 text-slate-600 min-w-0">
-              <Mail className={`${isCompact ? 'size-3' : 'size-4'} text-slate-400 shrink-0`} />
-              <span className={`${isCompact ? 'text-[12px]' : 'text-sm'} truncate`}>{client.email || "No email"}</span>
+              <Mail className="size-3 text-slate-400 shrink-0" />
+              <span className="text-[12px] truncate">{client.email || "No email"}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
-              <Phone className={`${isCompact ? 'size-3' : 'size-4'} text-slate-400 shrink-0`} />
-              <span className={`${isCompact ? 'text-[12px]' : 'text-sm'}`}>{client.phone || "No phone"}</span>
+              <Phone className="size-3 text-slate-400 shrink-0" />
+              <span className="text-[12px]">{client.phone || "No phone"}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
-              <Hash className={`${isCompact ? 'size-3' : 'size-4'} text-slate-400 shrink-0`} />
-              <span className={`${isCompact ? 'text-[12px]' : 'text-sm'}`}>ABN: {client.abn || "None"}</span>
+              <Hash className="size-3 text-slate-400 shrink-0" />
+              <span className="text-[12px]">ABN: {client.abn || "None"}</span>
             </div>
           </div>
 
-          <Separator className={`${isCompact ? 'mb-3' : 'mb-4'} bg-slate-100`} />
+          <Separator className="mb-3 bg-slate-100" />
 
           {/* Financial Summary */}
           <div className="flex flex-col gap-0.5">
             {isOverdue && (
-              <span className={`${isCompact ? 'text-[8px]' : 'text-[10px]'} font-bold text-red-500 uppercase tracking-wider`}>Overdue:</span>
+              <span className="text-[8px] font-bold text-red-500 uppercase tracking-wider">Overdue:</span>
             )}
             <div className="flex justify-between items-baseline">
-              <span className={`${isCompact ? 'text-[10px]' : 'text-xs'} font-bold text-slate-400 uppercase tracking-widest`}>Balance</span>
-              <span className={`font-bold ${isCompact ? 'text-base' : 'text-lg'} ${isOverdue ? 'text-red-500' : 'text-slate-900'}`}>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance</span>
+              <span className={`font-bold text-base ${isOverdue ? 'text-red-500' : 'text-slate-900'}`}>
                 ${(client.overdue_balance || client.balance || 0).toLocaleString('en-AU', { minimumFractionDigits: 2 })}
               </span>
             </div>

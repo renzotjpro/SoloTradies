@@ -9,9 +9,9 @@ from app.schemas import schemas
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
 
-@router.get("/", response_model=List[schemas.Client])
+@router.get("/", response_model=List[schemas.ClientWithStats])
 def read_clients(skip: int = 0, limit: int = 100, sb: Client = Depends(get_supabase), owner_id: str = Depends(get_current_user)):
-    return crud.get_clients(sb, owner_id=owner_id, skip=skip, limit=limit)
+    return crud.get_clients_with_stats(sb, owner_id=owner_id, skip=skip, limit=limit)
 
 @router.get("/{client_id}", response_model=schemas.Client)
 def read_client(client_id: int, sb: Client = Depends(get_supabase), owner_id: str = Depends(get_current_user)):
