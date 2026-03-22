@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_nodes_unit.py::TestHandleConversation::test_error_returns_fallback -v --tb=long -W ignore)",
+      "Bash(python -m pytest tests/test_nodes_unit.py -v -W ignore --tb=short)",
+      "Bash(python -m pytest tests/test_agent.py -v -W ignore --tb=short)",
+      "Bash(python -m pytest -m \"not llm\" -v -W ignore --tb=short)"
+    ]
+  }
+}

@@ -14,4 +14,6 @@ reportlab
 weasyprint
 jinja2
 pytest
+pytest-asyncio
+httpx
 supabase

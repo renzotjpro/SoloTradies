@@ -3,6 +3,7 @@ from langchain_core.messages import HumanMessage
 from app.agent.state import AgentState
 from app.agent.graph import app as workflow_app
 
+pytestmark = pytest.mark.llm
 
 def _base_state(**kwargs) -> AgentState:
     """Helper to build a minimal valid AgentState for testing."""
