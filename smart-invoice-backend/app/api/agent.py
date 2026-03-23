@@ -228,6 +228,7 @@ async def chat_endpoint(
     initial_state = AgentState(
         messages=langchain_messages,
         owner_id=owner_id,
+        intent=None,
         extracted_data=None,
         client_status=restored.get("client_status"),
         resolved_client_id=None,
@@ -338,6 +339,7 @@ async def chat_stream_endpoint(
     initial_state = AgentState(
         messages=langchain_messages,
         owner_id=owner_id,
+        intent=None,
         extracted_data=None,
         client_status=restored.get("client_status"),
         resolved_client_id=None,

@@ -763,6 +763,235 @@ def delete_memory(sb: Client, memory_id: str, owner_id: str):
     )
     return len(result.data) > 0
 
+# --- Search / Query Functions (used by agent tools) ---
+
+def search_clients(sb: Client, owner_id: str, query: str, search_by: str = "name"):
+    """Flexible client search with fuzzy matching.
+    search_by: 'name', 'email', 'company', 'abn', 'state'
+    """
+    import re as _re
+
+    if search_by == "abn":
+        digits = _re.sub(r"\D", "", query)
+        result = (
+            sb.table("clients").select("*")
+            .eq("owner_id", owner_id)
+            .ilike("abn", f"%{digits}%")
+            .execute()
+        )
+    elif search_by == "state":
+        # Normalize common Australian state abbreviations
+        state_map = {
+            "queensland": "qld", "new south wales": "nsw", "victoria": "vic",
+            "tasmania": "tas", "south australia": "sa", "western australia": "wa",
+            "northern territory": "nt", "australian capital territory": "act",
+        }
+        q = query.lower().strip()
+        terms = [q]
+        # Add reverse mapping: if user typed abbreviation, also search full name, and vice versa
+        for full, abbr in state_map.items():
+            if q == abbr:
+                terms.append(full)
+            elif q == full:
+                terms.append(abbr)
+        or_filter = ",".join(f"state.ilike.%{t}%" for t in terms)
+        result = (
+            sb.table("clients").select("*")
+            .eq("owner_id", owner_id)
+            .or_(or_filter)
+            .execute()
+        )
+    else:
+        result = (
+            sb.table("clients").select("*")
+            .eq("owner_id", owner_id)
+            .ilike(search_by, f"%{query}%")
+            .execute()
+        )
+    return result.data
+
+
+def search_invoices(sb: Client, owner_id: str, invoice_number: str = None,
+                    client_id: int = None, status: str = None,
+                    date_from: str = None, date_to: str = None,
+                    min_amount: float = None, max_amount: float = None):
+    """Flexible invoice search with chained filters."""
+    query = (
+        sb.table("invoices")
+        .select("*, clients(name, company, email), invoice_items(*)")
+        .eq("owner_id", owner_id)
+    )
+
+    if invoice_number:
+        # Try exact match first
+        exact = (
+            sb.table("invoices")
+            .select("*, clients(name, company, email), invoice_items(*)")
+            .eq("owner_id", owner_id)
+            .eq("invoice_number", invoice_number)
+            .execute()
+        )
+        if exact.data:
+            return _normalize_invoice_rows(exact.data)
+        # Fallback to ILIKE partial match
+        query = query.ilike("invoice_number", f"%{invoice_number}%")
+    if client_id:
+        query = query.eq("client_id", client_id)
+    if status:
+        # Support common variations
+        status_lower = status.lower()
+        if status_lower in ("unpaid", "outstanding"):
+            query = query.in_("status", ["Draft", "Sent", "Overdue"])
+        elif status_lower == "overdue":
+            query = query.eq("status", "Overdue")
+        elif status_lower == "paid":
+            query = query.eq("status", "Paid")
+        elif status_lower == "draft":
+            query = query.eq("status", "Draft")
+        elif status_lower == "sent":
+            query = query.eq("status", "Sent")
+        else:
+            query = query.ilike("status", f"%{status}%")
+    if date_from:
+        query = query.gte("issue_date", date_from)
+    if date_to:
+        query = query.lte("issue_date", date_to)
+    if min_amount is not None:
+        query = query.gte("total_amount", min_amount)
+    if max_amount is not None:
+        query = query.lte("total_amount", max_amount)
+
+    query = query.order("issue_date", desc=True)
+    result = query.execute()
+    return _normalize_invoice_rows(result.data)
+
+
+def _normalize_invoice_rows(rows: list) -> list:
+    """Normalize Supabase nested select keys for invoice rows."""
+    invoices = []
+    for row in rows:
+        row["items"] = row.pop("invoice_items", [])
+        row["client"] = row.pop("clients", None)
+        invoices.append(row)
+    return invoices
+
+
+def search_expenses(sb: Client, owner_id: str, category: str = None,
+                    client_id: int = None, invoice_id: int = None,
+                    date_from: str = None, date_to: str = None,
+                    description: str = None, missing_receipt: bool = False):
+    """Flexible expense search with chained filters."""
+    query = sb.table("expenses").select("*").eq("owner_id", owner_id)
+
+    if category:
+        query = query.ilike("category", f"%{category}%")
+    if client_id:
+        query = query.eq("client_id", client_id)
+    if invoice_id:
+        query = query.eq("invoice_id", invoice_id)
+    if date_from:
+        query = query.gte("expense_date", date_from)
+    if date_to:
+        query = query.lte("expense_date", date_to)
+    if description:
+        query = query.ilike("description", f"%{description}%")
+    if missing_receipt:
+        query = query.is_("receipt_url", "null")
+
+    result = query.order("expense_date", desc=True).execute()
+    return result.data
+
+
+def search_conversations_by_query(sb: Client, owner_id: str, query_text: str = None, limit: int = 5):
+    """Search conversations by title/summary or return most recent."""
+    q = (
+        sb.table("conversations")
+        .select("id, title, summary, updated_at")
+        .eq("owner_id", owner_id)
+        .eq("is_archived", False)
+    )
+    if query_text:
+        pattern = f"%{query_text}%"
+        q = q.or_(f"title.ilike.{pattern},summary.ilike.{pattern}")
+    q = q.order("updated_at", desc=True).limit(limit)
+    result = q.execute()
+    return result.data
+
+
+def get_gst_summary(sb: Client, owner_id: str, date_from: str, date_to: str) -> dict:
+    """Calculate GST collected (invoices) vs GST paid (expenses) for a date range."""
+    # GST collected from invoices (exclude drafts)
+    inv_result = (
+        sb.table("invoices")
+        .select("tax_amount, total_amount")
+        .eq("owner_id", owner_id)
+        .neq("status", "Draft")
+        .gte("issue_date", date_from)
+        .lte("issue_date", date_to)
+        .execute()
+    )
+    gst_collected = sum(row["tax_amount"] or 0 for row in inv_result.data)
+    invoice_total = sum(row["total_amount"] or 0 for row in inv_result.data)
+    invoice_count = len(inv_result.data)
+
+    # GST paid on expenses
+    exp_result = (
+        sb.table("expenses")
+        .select("amount, gst_included")
+        .eq("owner_id", owner_id)
+        .gte("expense_date", date_from)
+        .lte("expense_date", date_to)
+        .execute()
+    )
+    gst_paid = sum(row["gst_included"] or 0 for row in exp_result.data)
+    expense_total = sum(row["amount"] or 0 for row in exp_result.data)
+    expense_count = len(exp_result.data)
+
+    return {
+        "gst_collected": round(gst_collected, 2),
+        "gst_paid": round(gst_paid, 2),
+        "net_gst": round(gst_collected - gst_paid, 2),
+        "invoice_total": round(invoice_total, 2),
+        "invoice_count": invoice_count,
+        "expense_total": round(expense_total, 2),
+        "expense_count": expense_count,
+    }
+
+
+def get_client_revenue(sb: Client, owner_id: str, client_id: int,
+                       date_from: str = None, date_to: str = None) -> dict:
+    """Get revenue breakdown for a specific client."""
+    query = (
+        sb.table("invoices")
+        .select("total_amount, status")
+        .eq("owner_id", owner_id)
+        .eq("client_id", client_id)
+    )
+    if date_from:
+        query = query.gte("issue_date", date_from)
+    if date_to:
+        query = query.lte("issue_date", date_to)
+    result = query.execute()
+
+    total_billed = 0.0
+    paid = 0.0
+    outstanding = 0.0
+    for row in result.data:
+        amount = row["total_amount"] or 0
+        total_billed += amount
+        if row["status"] == "Paid":
+            paid += amount
+        else:
+            outstanding += amount
+
+    return {
+        "total_billed": round(total_billed, 2),
+        "paid": round(paid, 2),
+        "outstanding": round(outstanding, 2),
+        "invoice_count": len(result.data),
+    }
+
+
 def search_memories(sb: Client, owner_id: str, query_text: str, category: str = None):
     """Search memories using pgvector similarity, with ILIKE fallback."""
     from app.memory.embeddings import generate_embedding

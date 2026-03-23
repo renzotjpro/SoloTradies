@@ -13,9 +13,11 @@ from app.agent.state import (
     InvoiceData,
     NewClientDetails,
     SYSTEM_PROMPT,
+    get_search_system_prompt,
     validate_abn,
 )
 from app.agent.llm import get_llm
+from app.agent.tools import make_search_tools
 from app.database import get_supabase
 from app.schemas import schemas
 from app.crud import crud
@@ -51,12 +53,16 @@ def _today() -> str:
 # ---------------------------------------------------------------------------
 
 class IntentClassification(BaseModel):
-    """Classifies whether the user's message is casual conversation or invoice-related."""
-    intent: Literal["conversation", "invoice"] = Field(
+    """Classifies the user's message into one of three intents."""
+    intent: Literal["conversation", "invoice", "search"] = Field(
         description=(
             "Set to 'conversation' for greetings, small talk, or general questions "
             "about the app. Set to 'invoice' for anything related to creating invoices, "
-            "mentioning clients, amounts, services, or billing."
+            "mentioning clients, amounts, services, or billing. "
+            "Set to 'search' for any request to find, look up, show, list, query, "
+            "or retrieve existing data — clients, invoices, expenses, business details, "
+            "branding settings, pricing history, rates, financial summaries, GST, BAS, "
+            "conversation history, or any question that requires reading from the database."
         )
     )
 
@@ -78,12 +84,19 @@ def classify_intent(state: AgentState):
             "You are a message classifier for an invoicing app. "
             "Classify the user's LATEST message.\n\n"
             "Return 'conversation' for: greetings, small talk, thanks, "
-            "questions about the app, questions about past work/rates/pricing/history, "
-            "or anything NOT explicitly requesting to create a new invoice.\n\n"
+            "questions about how the app works, or anything that is NOT requesting "
+            "to create an invoice and NOT asking to look up existing data.\n\n"
             "Return 'invoice' for: explicit requests to create/send/generate an invoice, "
             "or providing invoice details (client name + amounts/services for a new invoice).\n\n"
-            "Key distinction: asking 'what are my rates?' or 'how much did I charge X?' "
-            "is 'conversation'. Saying 'invoice John $500 for plumbing' is 'invoice'."
+            "Return 'search' for: requests to find, look up, show, list, or query existing "
+            "data — clients, invoices, expenses, business details, branding settings, "
+            "pricing history, rates, financial summaries, GST, BAS, conversation history, "
+            "or any question that requires reading from the database. Examples: "
+            "'what are my rates?', 'how much did I charge John?', 'show unpaid invoices', "
+            "'find client Brett', 'what's my ABN?', 'any overdue invoices?', "
+            "'how much GST this quarter?', 'who's my best client?'\n\n"
+            "Key distinction: 'how much did I charge John?' is 'search'. "
+            "'Invoice John $500 for plumbing' is 'invoice'. 'Hey mate' is 'conversation'."
         )
 
         result: IntentClassification = structured_llm.invoke(
@@ -134,6 +147,79 @@ def handle_conversation(state: AgentState):
         logger.error(f"handle_conversation failed: {e}")
         return {
             "messages": [AIMessage(content="Hey there! 👋 I'm here to help with invoicing. What can I do for you?")]
+        }
+
+
+# ---------------------------------------------------------------------------
+# NODE 0c: handle_search
+# Uses LLM tool-calling to answer data queries (clients, invoices, expenses, etc.)
+# ---------------------------------------------------------------------------
+
+def handle_search(state: AgentState):
+    """Handle search/query requests using LLM tool-calling with bound search tools."""
+    from langchain_core.messages import ToolMessage
+
+    messages = state["messages"]
+    owner_id = state.get("owner_id", "")
+
+    try:
+        sb = get_supabase()
+        tools = make_search_tools(sb, owner_id)
+
+        llm = get_llm()
+        llm_with_tools = llm.bind_tools(tools)
+
+        # Build system prompt with memory context
+        last_user_msg = ""
+        for m in reversed(messages):
+            if isinstance(m, HumanMessage):
+                last_user_msg = m.content
+                break
+
+        memory_block = _get_memory_context(owner_id, query=last_user_msg or None)
+        system_prompt = get_search_system_prompt()
+        if memory_block:
+            system_prompt += f"\n\n{memory_block}"
+
+        # Phase 1: LLM decides which tool(s) to call
+        response = llm_with_tools.invoke(
+            [SystemMessage(content=system_prompt)] + messages
+        )
+
+        # Phase 2: Execute tool calls if any
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            tool_map = {t.name: t for t in tools}
+            tool_messages = [response]
+
+            for tc in response.tool_calls:
+                tool_name = tc["name"]
+                if tool_name in tool_map:
+                    try:
+                        result = tool_map[tool_name].invoke(tc["args"])
+                    except Exception as tool_err:
+                        logger.error(f"Tool {tool_name} failed: {tool_err}")
+                        result = {"error": f"Tool '{tool_name}' encountered an error."}
+                else:
+                    result = {"error": f"Unknown tool '{tool_name}'."}
+                tool_messages.append(
+                    ToolMessage(content=str(result), tool_call_id=tc["id"])
+                )
+
+            # Phase 3: LLM generates natural language response from tool results
+            final = llm_with_tools.invoke(
+                [SystemMessage(content=system_prompt)] + messages + tool_messages
+            )
+            return {"messages": [AIMessage(content=final.content)]}
+
+        # No tool calls — LLM answered directly
+        return {"messages": [AIMessage(content=response.content)]}
+
+    except Exception as e:
+        logger.error(f"handle_search failed: {e}")
+        return {
+            "messages": [AIMessage(
+                content="Sorry mate, I had a bit of trouble looking that up. Could you try rephrasing your question?"
+            )]
         }
 
 
@@ -823,10 +909,14 @@ def route_after_intent(state: AgentState):
     """
     After classify_intent:
     - conversation → handle_conversation (natural response)
+    - search       → handle_search (data query with tool-calling)
     - invoice      → extract_basics (existing invoice flow)
     """
-    if state.get("intent") == "conversation":
+    intent = state.get("intent")
+    if intent == "conversation":
         return "handle_conversation"
+    if intent == "search":
+        return "handle_search"
     return "extract_basics"
 
 
@@ -839,6 +929,7 @@ workflow = StateGraph(AgentState)
 # Nodes
 workflow.add_node("classify_intent", classify_intent)
 workflow.add_node("handle_conversation", handle_conversation)
+workflow.add_node("handle_search", handle_search)
 workflow.add_node("extract_basics", extract_basics)
 workflow.add_node("check_client_db", check_client_db)
 workflow.add_node("ask_creation_preference", ask_creation_preference)
@@ -853,6 +944,7 @@ workflow.add_node("generate_invoice", generate_invoice)
 workflow.add_edge(START, "classify_intent")
 workflow.add_conditional_edges("classify_intent", route_after_intent)
 workflow.add_edge("handle_conversation", END)
+workflow.add_edge("handle_search", END)
 workflow.add_edge("extract_basics", "check_client_db")
 
 # DB check → branch on client_status

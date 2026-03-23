@@ -4,7 +4,14 @@
       "Bash(python -m pytest tests/test_nodes_unit.py::TestHandleConversation::test_error_returns_fallback -v --tb=long -W ignore)",
       "Bash(python -m pytest tests/test_nodes_unit.py -v -W ignore --tb=short)",
       "Bash(python -m pytest tests/test_agent.py -v -W ignore --tb=short)",
-      "Bash(python -m pytest -m \"not llm\" -v -W ignore --tb=short)"
+      "Bash(python -m pytest -m \"not llm\" -v -W ignore --tb=short)",
+      "Bash(python -m py_compile app/crud/crud.py)",
+      "Bash(python -m py_compile app/api/agent.py)",
+      "Bash(python -m pytest --tb=short -q)",
+      "Bash(python -m pytest --ignore=test_out.txt --tb=short -q)",
+      "Bash(python -m pytest tests/test_agent.py::test_existing_client_asks_only_invoice_fields tests/test_agent.py::test_unknown_client_shows_two_options tests/test_graph_integration.py::TestSingleTurn::test_unknown_client_presents_options --tb=long -q)",
+      "Bash(python -m pytest tests/test_agent.py::test_existing_client_asks_only_invoice_fields tests/test_agent.py::test_unknown_client_shows_two_options tests/test_graph_integration.py::TestSingleTurn::test_unknown_client_presents_options --tb=short -q)",
+      "Bash(python -m pytest tests/test_agent.py -v --tb=short)"
     ]
   }
 }
