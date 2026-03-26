@@ -219,7 +219,7 @@ Built by **Renzo Tello Jimenez** — Senior Automation Engineer transitioning in
 
 **Tech brief authoring:** All system prompt specifications and developer briefs are written to be developer-ready for handoff to external engineering teams.
 
-[LinkedIn](https://linkedin.com/in/your-profile) • [Email](mailto:your-email@example.com)
+[LinkedIn](https://www.linkedin.com/in/renzotellojimenez/) • [Email](mailto:renzojt@outlook.com)
 
 ---
 
