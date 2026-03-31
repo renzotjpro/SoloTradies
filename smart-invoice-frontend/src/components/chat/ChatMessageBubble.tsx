@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 type ChatMessageBubbleProps = {
     message: ChatMessage;
     onQuickReply?: (messageId: string, choice: string) => void;
+    isLastAssistant?: boolean;
 };
 
-export function ChatMessageBubble({ message, onQuickReply }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({ message, onQuickReply, isLastAssistant }: ChatMessageBubbleProps) {
     const isUser = message.role === "user";
     const hasInvoice = !!message.createdInvoiceId;
 
@@ -73,7 +74,8 @@ export function ChatMessageBubble({ message, onQuickReply }: ChatMessageBubblePr
                             </div>
                         )}
 
-                        {message.structuredData && (
+                        {/* Show draft card only on the latest assistant message, or always for finalized invoices */}
+                        {message.structuredData && (isLastAssistant || message.createdInvoiceId) && (
                             <div className="animate-in slide-in-from-bottom-2 duration-500">
                                 <InvoiceDraftCard data={message.structuredData} invoiceId={message.createdInvoiceId} />
                             </div>

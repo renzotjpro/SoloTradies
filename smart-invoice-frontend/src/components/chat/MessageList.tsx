@@ -18,13 +18,20 @@ export function MessageList({ messages, isGenerating, onQuickReply }: MessageLis
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, isGenerating]);
 
+    // Find the index of the last assistant message so draft cards only show there
+    const lastAssistantIdx = messages.reduce(
+        (acc, m, i) => (m.role === "assistant" ? i : acc),
+        -1,
+    );
+
     return (
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30 dark:bg-transparent">
-            {messages.map((message) => (
+            {messages.map((message, idx) => (
                 <ChatMessageBubble
                     key={message.id}
                     message={message}
                     onQuickReply={onQuickReply}
+                    isLastAssistant={idx === lastAssistantIdx}
                 />
             ))}
 

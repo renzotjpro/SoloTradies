@@ -90,15 +90,25 @@ def _extract_choices(text: str) -> tuple[str, Optional[list[str]]]:
     return clean, choices
 
 
-def _format_structured_data(extracted: InvoiceData | None) -> dict | None:
+def _format_structured_data(extracted: InvoiceData | None, final_state: dict | None = None) -> dict | None:
     """Transform backend InvoiceData into the flat shape the frontend expects.
     Returns None when there's no meaningful invoice data to display."""
     if not extracted:
         return None
+
+    # Don't show the draft card during client confirmation — user hasn't provided
+    # invoice details yet, so the card would be empty or show hallucinated data.
+    if final_state and final_state.get("client_status") == "pending_confirmation":
+        return None
+
     # Don't show the draft card if we have no client and no items
     items = extracted.items or []
-    has_items = any(i.description or i.amount for i in items)
+    has_items = any(i.description and i.amount for i in items)
     if not extracted.client_name and not has_items:
+        return None
+    # Require at least one real item to show the card — avoids showing
+    # a card with only a client name and no service/amount details.
+    if not has_items:
         return None
     service = ", ".join(i.description for i in items if i.description) or None
     total = sum(i.amount for i in items if i.amount)
@@ -162,11 +172,34 @@ def _load_conversation_state(sb, conversation_id: str, owner_id: str, new_user_c
 
     # Restore agent state from JSONB (no more fragile text scanning)
     saved = conv.get("agent_state") or {}
+
+    # If the last graph run already created an invoice OR the user declined,
+    # reset all invoice fields so the next user message starts a fresh flow.
+    if saved.get("created_invoice_id") or saved.get("user_declined"):
+        return conv, langchain_messages, {
+            "client_status": None,
+            "resolved_client_id": None,
+            "creation_preference": None,
+            "is_complete": False,
+            "user_declined": False,
+            "extracted_data": None,
+        }
+
+    # Restore extracted_data as an InvoiceData instance if present
+    restored_extracted = None
+    if saved.get("extracted_data"):
+        try:
+            restored_extracted = InvoiceData(**saved["extracted_data"])
+        except Exception:
+            restored_extracted = None
+
     return conv, langchain_messages, {
         "client_status": saved.get("client_status"),
+        "resolved_client_id": saved.get("resolved_client_id"),
         "creation_preference": saved.get("creation_preference"),
         "is_complete": saved.get("is_complete", False),
         "user_declined": saved.get("user_declined", False),
+        "extracted_data": restored_extracted,
     }
 
 
@@ -214,24 +247,13 @@ async def chat_endpoint(
         langchain_messages = _build_langchain_messages(request.messages)
         restored = _recover_state(langchain_messages)
 
-    # If the user already declined, don't re-invoke the graph
-    if restored.get("user_declined"):
-        cancel_reply = "No worries! If you'd like to start a new invoice or need anything else, just let me know."
-        _persist_ai_response(sb, conversation_id, owner_id, cancel_reply, None, {
-            "user_declined": True, "is_complete": False,
-        })
-        return {
-            "reply": cancel_reply, "choices": None, "structuredData": None,
-            "is_complete": False, "conversationId": conversation_id,
-        }
-
     initial_state = AgentState(
         messages=langchain_messages,
         owner_id=owner_id,
         intent=None,
-        extracted_data=None,
+        extracted_data=restored.get("extracted_data"),
         client_status=restored.get("client_status"),
-        resolved_client_id=None,
+        resolved_client_id=restored.get("resolved_client_id"),
         creation_preference=restored.get("creation_preference"),
         is_complete=restored.get("is_complete", False) or restored.get("reached_confirmation", False),
         user_confirmed=False,
@@ -252,7 +274,7 @@ async def chat_endpoint(
     # The last message in the state is the AI's reply
     raw_reply = final_state["messages"][-1].content
     reply, choices = _extract_choices(raw_reply)
-    structured_data = _format_structured_data(final_state.get("extracted_data"))
+    structured_data = _format_structured_data(final_state.get("extracted_data"), final_state)
     created_invoice_id = final_state.get("created_invoice_id")
 
     # Persist AI response
@@ -315,34 +337,13 @@ async def chat_stream_endpoint(
         langchain_messages = _build_langchain_messages(request.messages)
         restored = _recover_state(langchain_messages)
 
-    # If the user already declined, don't re-invoke the graph
-    if restored.get("user_declined"):
-        cancel_reply = "No worries! If you'd like to start a new invoice or need anything else, just let me know."
-
-        async def cancel_generator():
-            words = cancel_reply.split(" ")
-            for i, word in enumerate(words):
-                token = word + (" " if i < len(words) - 1 else "")
-                yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
-                await asyncio.sleep(0.03)
-            _persist_ai_response(sb, conversation_id, owner_id, cancel_reply, None, {
-                "user_declined": True, "is_complete": False,
-            })
-            yield f"data: {json.dumps({'type': 'done', 'is_complete': False, 'conversationId': conversation_id})}\n\n"
-
-        return StreamingResponse(
-            cancel_generator(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
-        )
-
     initial_state = AgentState(
         messages=langchain_messages,
         owner_id=owner_id,
         intent=None,
-        extracted_data=None,
+        extracted_data=restored.get("extracted_data"),
         client_status=restored.get("client_status"),
-        resolved_client_id=None,
+        resolved_client_id=restored.get("resolved_client_id"),
         creation_preference=restored.get("creation_preference"),
         is_complete=restored.get("is_complete", False) or restored.get("reached_confirmation", False),
         user_confirmed=False,
@@ -368,7 +369,7 @@ async def chat_stream_endpoint(
 
     raw_reply = final_state["messages"][-1].content
     reply, choices = _extract_choices(raw_reply)
-    structured_data = _format_structured_data(final_state.get("extracted_data"))
+    structured_data = _format_structured_data(final_state.get("extracted_data"), final_state)
     is_complete = final_state.get("is_complete", False)
     created_invoice_id = final_state.get("created_invoice_id")
 

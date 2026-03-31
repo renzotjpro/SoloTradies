@@ -261,7 +261,11 @@ def extract_basics(state: AgentState):
             "Your current task: Extract all available details from the conversation.\n"
             "Extract: client name, line items (description + amount), date of service, due date,\n"
             "AND any client registration details the user provides (Business Name, Contact Name, ABN, Email).\n\n"
-            "Rules:\n"
+            "CRITICAL RULES:\n"
+            "- ONLY extract data that the user EXPLICITLY stated in this conversation.\n"
+            "- NEVER fabricate, guess, or infer amounts, services, descriptions, or any other fields.\n"
+            "- Memory context above is for REFERENCE ONLY — do NOT auto-fill invoice fields from it.\n"
+            "- If the user has not mentioned specific services or amounts, leave items as null.\n"
             "- If the user provides quantity × rate (e.g. '40 hours at $100/hour'), "
             "calculate the total (40 × 100 = 4000) and set quantity and unit_price.\n"
             "- For relative due dates like 'due in 30 days', calculate the actual date "
@@ -326,7 +330,9 @@ def extract_basics(state: AgentState):
 def check_client_db(state: AgentState):
     """
     Queries Supabase for the client name extracted in the previous step.
-    Sets client_status to 'existing' or 'not_found'.
+    Uses fuzzy matching (ILIKE %name%) so partial names like 'Marvel' find 'Marvel SAS'.
+    When a match is found, asks the user to confirm the client before proceeding.
+    Sets client_status to 'existing', 'pending_confirmation', or 'not_found'.
     """
     data: Optional[InvoiceData] = state.get("extracted_data")
 
@@ -338,29 +344,110 @@ def check_client_db(state: AgentState):
     if state.get("client_status") in ("existing", "not_found"):
         return {}
 
+    # If the user just confirmed a pending client, promote to 'existing'
+    if state.get("client_status") == "pending_confirmation":
+        messages = state.get("messages", [])
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                text = msg.content.lower().strip()
+                if text in ("yes", "y", "yep", "correct", "that's the one", "thats the one",
+                           "that one", "confirm", "yes, that's them") or \
+                        "existing" in text or "that's them" in text or "right client" in text:
+                    return {"client_status": "existing"}
+                if text in ("no", "n", "nope", "wrong", "not that one", "different",
+                           "no, different client"):
+                    return {"client_status": "not_found", "resolved_client_id": None}
+                break
+        # If ambiguous, re-ask
+        return {}
+
     try:
         owner_id = state.get("owner_id", "")
         sb = get_supabase()
-        result = (
+
+        # Try exact match first
+        exact = (
             sb.table("clients")
-            .select("id, name, abn")
-            .ilike("name", data.client_name)   # case-insensitive match
+            .select("id, name, email, company, abn, phone")
+            .ilike("name", data.client_name)
             .eq("owner_id", owner_id)
             .execute()
         )
 
-        if result.data:
-            client = result.data[0]
-            return {
-                "client_status": "existing",
-                "resolved_client_id": client["id"],
-            }
-        else:
-            return {"client_status": "not_found"}
+        if exact.data:
+            client = exact.data[0]
+            return _confirm_client_match(client, data.client_name)
+
+        # Fuzzy match: partial name search
+        fuzzy = (
+            sb.table("clients")
+            .select("id, name, email, company, abn, phone")
+            .ilike("name", f"%{data.client_name}%")
+            .eq("owner_id", owner_id)
+            .execute()
+        )
+
+        if fuzzy.data:
+            if len(fuzzy.data) == 1:
+                return _confirm_client_match(fuzzy.data[0], data.client_name)
+            # Multiple matches — ask user to pick
+            options = "\n".join(
+                f"  {i+1}. **{c['name']}** — {c.get('email') or 'no email'}"
+                for i, c in enumerate(fuzzy.data[:5])
+            )
+            msg = AIMessage(
+                content=(
+                    f"I found a few clients matching '{data.client_name}':\n\n"
+                    f"{options}\n\n"
+                    f"Which one did you mean? Or say 'none' to create a new client."
+                )
+            )
+            return {"messages": [msg], "client_status": None}
+
+        return {"client_status": "not_found"}
 
     except Exception as e:
         logger.error(f"check_client_db failed: {e}")
         return {"client_status": "not_found"}
+
+
+def _confirm_client_match(client: dict, search_name: str) -> dict:
+    """Build a confirmation message when we find a matching client."""
+    name = client.get("name", "")
+    email = client.get("email") or "—"
+    abn = client.get("abn") or "—"
+    company = client.get("company") or ""
+    phone = client.get("phone") or "—"
+
+    # If the name is an exact case-insensitive match, auto-confirm
+    if name.lower().strip() == search_name.lower().strip():
+        return {
+            "client_status": "existing",
+            "resolved_client_id": client["id"],
+        }
+
+    # Partial match — ask user to confirm
+    details = f"- **Name:** {name}\n"
+    if company and company.lower() != name.lower():
+        details += f"- **Company:** {company}\n"
+    details += f"- **Email:** {email}\n"
+    details += f"- **ABN:** {abn}\n"
+    if phone != "—":
+        details += f"- **Phone:** {phone}\n"
+
+    msg = AIMessage(
+        content=(
+            f"I found a client that might be who you're looking for:\n\n"
+            f"{details}\n"
+            f"Is this the right client? (Yes/No)\n\n"
+            f'CHOICES:["Yes, that\'s them","No, different client"]'
+        )
+    )
+    return {
+        "messages": [msg],
+        "client_status": "pending_confirmation",
+        "resolved_client_id": client["id"],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -617,13 +704,33 @@ def confirm_invoice(state: AgentState):
     data: InvoiceData = state["extracted_data"]
     messages = state["messages"]
 
-    # Check if the user already confirmed or declined in this turn
-    last_msg = messages[-1] if messages else None
-    if last_msg and isinstance(last_msg, HumanMessage):
-        text = last_msg.content.lower().strip()
-        if text in ("yes", "y", "confirm", "go ahead", "create it", "looks good", "correct", "yep", "sure"):
+    # Find the last user message (not just messages[-1], which may be an
+    # AIMessage added by earlier nodes in the same graph run)
+    last_user_msg = None
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            last_user_msg = msg
+            break
+
+    if last_user_msg:
+        text = last_user_msg.content.lower().strip()
+        if text in (
+            "yes", "y", "confirm", "go ahead", "create it", "looks good",
+            "correct", "yep", "sure", "yes, create invoice",
+        ):
             return {"user_confirmed": True}
-        if text in ("no", "n", "cancel", "stop", "nevermind", "nope", "nah", "don't", "dont"):
+        if text == "no, make changes":
+            change_msg = AIMessage(
+                content=(
+                    "No worries, mate! What would you like to change? "
+                    "You can update the client, amounts, description, dates — just let me know."
+                )
+            )
+            return {"messages": [change_msg], "user_confirmed": False, "is_complete": False}
+        if text in (
+            "no", "n", "cancel", "stop", "nevermind", "nope", "nah",
+            "don't", "dont",
+        ):
             cancel_msg = AIMessage(
                 content=(
                     "No worries! I've cancelled the invoice. "
@@ -677,7 +784,8 @@ def confirm_invoice(state: AgentState):
         f"**Subtotal:** ${total:,.2f}\n"
         f"**GST (10%):** ${gst:,.2f}\n"
         f"**Total (inc. GST):** ${total_inc_gst:,.2f}\n\n"
-        f"Shall I go ahead and create this invoice? (Yes/No)"
+        f"Shall I go ahead and create this invoice? (Yes/No)\n\n"
+        f'CHOICES:["Yes, create invoice","No, make changes"]'
     )
 
     return {"messages": [AIMessage(content=summary)], "user_confirmed": False}
@@ -828,7 +936,18 @@ def generate_invoice(state: AgentState):
                 f"You can view and edit it from the Invoices page."
             )
         )
-        return {"messages": [success_msg], "created_invoice_id": invoice_id}
+        # Reset invoice state so the next message in this conversation
+        # starts a fresh invoice flow instead of reusing old data.
+        return {
+            "messages": [success_msg],
+            "created_invoice_id": invoice_id,
+            "extracted_data": None,
+            "client_status": None,
+            "resolved_client_id": None,
+            "creation_preference": None,
+            "is_complete": False,
+            "user_confirmed": False,
+        }
 
     except Exception as e:
         logger.error(f"generate_invoice failed: {e}")
@@ -848,7 +967,8 @@ def generate_invoice(state: AgentState):
 def route_after_db_check(state: AgentState):
     """
     After check_client_db:
-    - existing  → validate_existing_client
+    - existing            → validate_existing_client
+    - pending_confirmation → END (wait for user to confirm the matched client)
     - not_found and preference prompt already sent → resolve_creation_preference
     - not_found and preference prompt not yet sent → ask_creation_preference
     - None (no client name extracted) → END (wait for user)
@@ -856,10 +976,10 @@ def route_after_db_check(state: AgentState):
     status = state.get("client_status")
     if status == "existing":
         return "validate_existing_client"
+    if status == "pending_confirmation":
+        return END
     if status == "not_found":
         # Detect whether the preference prompt was already sent in a prior turn.
-        # We look for the CHOICES: marker — format-independent and won't break
-        # if the visible message text is later edited.
         messages = state.get("messages", [])
         for msg in reversed(messages):
             if isinstance(msg, AIMessage) and "How would you like to proceed?" in msg.content:
