@@ -1,0 +1,32 @@
+# Virtual environment & caches
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets — never bake into image
+.env
+.env.*
+!.env.example
+
+# Version control
+.git/
+.gitignore
+
+# Test & dev artifacts
+tests/
+scripts/
+docs/
+pytest.ini
+test_out.txt
+
+# Database & schema files (not needed at runtime)
+*.db
+*.sql
+
+# Documentation
+*.md

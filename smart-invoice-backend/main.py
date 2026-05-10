@@ -1,3 +1,4 @@
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -17,10 +18,13 @@ app.include_router(dashboard.router)
 app.include_router(conversations.router)
 app.include_router(memories.router)
 
-# Configure CORS for Next.js frontend
+# Configure CORS — reads from CORS_ORIGINS env var (comma-separated), defaults to "*"
+cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
+cors_origins = [origin.strip() for origin in cors_origins_raw.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update this to specific origins in production
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
